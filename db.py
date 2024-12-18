@@ -1,5 +1,4 @@
 from flask import Flask, g
-
 import sqlite3
 import os
 
@@ -12,6 +11,7 @@ def get_db():
         db = g._database = sqlite3.connect(DATABASE)  # Connect to SQLite database
         db.row_factory = sqlite3.Row  # This allows accessing rows as dictionaries
     return db
+
 
 def init_db():
     print("creating a new db")
