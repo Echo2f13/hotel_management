@@ -1,3 +1,4 @@
+from db import init_db
 from flask import Flask, render_template, request, redirect, url_for
 
 app = Flask(__name__)
@@ -132,7 +133,7 @@ def staff_login():
     '''
 @app.route("/staff-dashboard", methods=["GET", "POST"])
 def staff_dashboard():
-    global staff_data  # Example: {'staff_id': [{'id': '001', 'name': 'John', 'role': 'Manager', 'age': '30'}]}
+    global staff_data  
 
     if request.method == "POST":
         action = request.form['action']
@@ -182,7 +183,6 @@ def staff_dashboard():
 
         return redirect('/staff-dashboard')
 
-    # Generate Menu HTML
     menu_html = ""
     for category, dishes in menu_data.items():
         menu_html += f"<h3>{category}</h3>"
@@ -816,5 +816,6 @@ def cart_page():
     </html>
     '''
 
+init_db()
 if __name__ == "__main__":
     app.run(debug=True)
