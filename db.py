@@ -75,10 +75,8 @@ def init_db():
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS `Order` (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    cart INTEGER NOT NULL,
-                    session_id INTEGER UNIQUE NOT NULL,
-                    total_price FLOAT NOT NULL,
-                    FOREIGN KEY (cart) REFERENCES Cart (id)
+                    session_id TEXT NOT NULL,
+                    total_price FLOAT NOT NULL
                 )
             ''')
             print("Order table created successfully.")

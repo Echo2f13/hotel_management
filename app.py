@@ -589,36 +589,62 @@ def show_menu():
     '''
     return html_content
 
-@app.route("/category/<category_name>")
+@app.route("/category/<category_name>", methods=["GET", "POST"])
 def category_page(category_name):
-    # Fetch dishes for the given category
+    categories = get_categories_from_db()  
+    category_buttons = ''.join([f'<button onclick="window.location.href=\'/category/{category}\'">{category.capitalize()}</button>' for category in categories])
+    if request.method == "POST":
+        item_id = request.form.get("item_id")
+        quantity = int(request.form.get("quantity", 1)) 
+        session_id = session.get('session_id')
+        
+        db = get_db()
+        cursor = db.cursor()
+        
+        # Fetch the item details from the Menu table
+        cursor.execute("SELECT id, item_name, price FROM Menu WHERE id = ?", (item_id,))
+        item = cursor.fetchone()
+
+        if item:
+            # Check if the item already exists in the cart for the given session_id
+            cursor.execute("SELECT id, quantity FROM Cart WHERE item = ? AND session_id = ?", (item_id, session_id))
+            existing_item = cursor.fetchone()
+
+            if existing_item:
+                # If the item exists, delete the old entry
+                cursor.execute("DELETE FROM Cart WHERE item = ? AND session_id = ?", (item_id, session_id))
+
+            # Insert the new data (either fresh entry or updated data after deletion)
+            cursor.execute(
+                "INSERT INTO Cart (item, quantity, price, session_id) VALUES (?, ?, ?, ?)",
+                (item["id"], quantity, item["price"] * quantity, session_id)
+            )
+            db.commit()
     category_data = get_dishes_for_category(category_name.capitalize())
-    
     if not category_data:
         return f"<h2>No dishes found for category: {category_name}</h2>"
-    
-    # Generate the dish cards dynamically
     dishes_html = ""
     for dish in category_data:
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("SELECT quantity FROM Cart WHERE item = ? AND session_id = ?", (dish['id'], session['session_id']))
+        cart_item = cursor.fetchone()
+        quantity_value = cart_item['quantity'] if cart_item else 0
         dishes_html += f'''
         <div class="dish-card">
             <img src="/static/img/{dish['id']}.jpg" alt="{dish['item_name']}">
             <h3>{dish['item_name']}</h3>
-            <form action="/add_to_cart" method="POST" style="margin-top: 10px;">
+            <h3>₹{dish['price']:.2f}</h3>
+            <form action="/category/{category_name}" method="POST" style="margin-top: 10px;">
                 <input type="hidden" name="session_id" value="{session['session_id']}" >
                 <input type="hidden" name="item_id" value="{dish['id']}" >
                 <label for="quantity_{dish['id']}">Quantity:</label>
-                <input type="number" id="quantity_{dish['id']}" name="quantity" value="1" min="1" style="width: 60px; margin-left: 5px;">
+                <input type="number" id="quantity_{dish['id']}" name="quantity" value="{quantity_value}" min="0" style="width: 60px; margin-left: 5px;">
+                <br><br>
                 <button type="submit">Add to Cart</button>
             </form>
         </div>
         '''
-    
-    # Generate category buttons dynamically
-    categories = get_categories_from_db()  # Fetch categories from DB
-    category_buttons = ''.join([f'<button onclick="window.location.href=\'/category/{category}\'">{category.capitalize()}</button>' for category in categories])
-    
-    # HTML structure for the page
     html_content = f'''
     <!DOCTYPE html>
     <html>
@@ -728,51 +754,127 @@ def category_page(category_name):
     '''
     return html_content
 
-@app.route("/add_to_cart", methods=["POST"])
-def add_to_cart():
-    item_id = request.form.get("item_id")
-    quantity = int(request.form.get("quantity", 1))  # Default quantity is 1
+@app.route("/cart", methods=["GET", "POST"])
+def cart_page():
     session_id = session.get('session_id')
-
-    # Fetch item details from the Menu table
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT id, item_name, price FROM Menu WHERE id = ?", (item_id,))
-    item = cursor.fetchone()
 
-    if not item:
-        return {"success": False, "message": f"Item with ID {item_id} not found."}, 404
-    if not session_id:
-        return {"success": False, "message": f"Item with ID {    session_id } not found."}, 404
+    # If the request is POST, place the order
+    if request.method == "POST":
+        cursor.execute('''
+            SELECT SUM(m.price * c.quantity) 
+            FROM Cart c
+            JOIN Menu m ON c.item = m.id
+            WHERE c.session_id = ?
+        ''', (session_id,))
+        total_price = cursor.fetchone()[0]
 
+        # If the total price is invalid, redirect to cart page with an error message
 
-    # Insert the item into the Cart table
-    cursor.execute(
-        "INSERT INTO Cart (item, quantity, price, session_id) VALUES (?, ?, ?, ?)",
-        (item["id"], quantity, item["price"] * quantity, session_id)
-    )
-    db.commit()
+        # Insert into the Order table
+        cursor.execute('''
+            INSERT INTO `Order` (session_id, total_price)
+            VALUES (?, ?)
+        ''', (session_id, total_price))
+        db.commit()
 
-    return {"success": True, "message": f"Added {quantity} of {item['item_name']} to the cart."}
+        return redirect(url_for('cart_page'))
 
+    # Fetch cart items for display
+    cursor.execute('''
+        SELECT m.item_name, c.quantity, m.price
+        FROM Cart c
+        JOIN Menu m ON c.item = m.id
+        WHERE c.session_id = ?
+    ''', (session_id,))
+    cart_items = cursor.fetchall()
 
+    # If the cart is empty, show the empty cart page
+    if not cart_items:
+        return '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Cart - Hotel</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    text-align: center;
+                    margin: 0;
+                    padding: 0;
+                    background-color: #f4f4f4;
+                }}
+                header {{
+                    background-color: #4CAF50;
+                    color: white;
+                    padding: 20px 0;
+                    font-size: 24px;
+                    position: relative;
+                }}
+                .cart-table {{
+                    width: 80%;
+                    margin: 20px auto;
+                    border-collapse: collapse;
+                    text-align: left;
+                }}
+                .cart-table th, .cart-table td {{
+                    border: 1px solid #ddd;
+                    padding: 10px;
+                }}
+                .cart-table th {{
+                    background-color: #4CAF50;
+                    color: white;
+                }}
+                .total-price {{
+                    margin-top: 20px;
+                    font-size: 20px;
+                    font-weight: bold;
+                }}
+                .order-button {{
+                    margin-top: 30px;
+                    padding: 10px 20px;
+                    font-size: 18px;
+                    background-color: #FF5733;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                }}
+                .order-button:hover {{
+                    background-color: #FF4500;
+                }}
+            </style>
+        </head>
+        <body>
+            <header>
+                <img src="/static/logo.jpg" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
+                <span>Hotel Name</span>
+            </header>
+            <h2>Cart</h2>
+            <h3>Your Cart is empty</h3>
+            <button class="order-button" onclick="window.location.href='/category/Biryani'">Go Back</button>
+        </body>
+        </html>
+        '''
 
-@app.route("/cart")
-def cart_page():
-    total_price = 0
+    # Generate the cart table rows dynamically
     cart_html = ""
-    for index, item in enumerate(cart_data, start=1):
-        total_price += item['price'] * item['quantity']
+    total_price = 0
+    for idx, item in enumerate(cart_items, start=1):
+        item_name, quantity, price = item
+        total_item_price = price * quantity
+        total_price += total_item_price
         cart_html += f'''
         <tr>
-            <td>{index}</td>
-            <td>{item['dish_name']}</td>
-            <td>{item['price']}</td>
-            <td>{item['quantity']}</td>
-            <td>{item['price'] * item['quantity']}</td>
+            <td>{idx}</td>
+            <td>{item_name}</td>
+            <td>₹{price:.2f}</td>
+            <td>{quantity}</td>
+            <td>₹{total_item_price:.2f}</td>
         </tr>
         '''
-    
+
     return f'''
     <!DOCTYPE html>
     <html>
@@ -792,11 +894,6 @@ def cart_page():
                 padding: 20px 0;
                 font-size: 24px;
                 position: relative;
-            }}
-            .menu-container {{
-                display: flex;
-                justify-content: space-between;
-                margin: 30px;
             }}
             .cart-table {{
                 width: 80%;
@@ -831,14 +928,6 @@ def cart_page():
                 background-color: #FF4500;
             }}
         </style>
-        <script>
-            function placeOrder() {{
-                const tableNumber = prompt('Please enter your table number:');
-                if (tableNumber) {{
-                    alert('Order placed successfully for Table ' + tableNumber);
-                }}
-            }}
-        </script>
     </head>
     <body>
         <header>
@@ -861,12 +950,17 @@ def cart_page():
             </tbody>
         </table>
         <div class="total-price">
-            Total Price: {total_price}
+            Total Price: ₹{total_price:.2f}
         </div>
-        <button class="order-button" onclick="placeOrder()">Order Now</button>
+        <form method="POST">
+            <button class="order-button" type="submit">Order Now</button>
+        </form>
+        <button class="order-button" onclick="window.location.href='/category/Biryani'">Go Back</button>
     </body>
     </html>
     '''
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
