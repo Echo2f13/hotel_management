@@ -1,6 +1,8 @@
 from db import init_db
+from db_m import get_data_from_db
 from flask import Flask, render_template, request, redirect, url_for
 
+menu_data_db = get_data_from_db()
 app = Flask(__name__)
 
 #staff cred
@@ -198,7 +200,7 @@ def staff_dashboard():
         for dish in dishes:
             menu_html += f"""
             <tr>
-                <td>{dish['id']}</td>
+                <td>{data['id']}</td>
                 <td>{dish['name']}</td>
                 <td>{dish['price']}</td>
                 <td>
@@ -578,7 +580,7 @@ def show_menu():
     '''
 @app.route("/category/<category_name>")
 def category_page(category_name):
-    category_data = menu_data.get(category_name.capitalize(), [])
+    category_data = menu_data_db.get(category_name.capitalize(), [])
     
     if not category_data:
         return f"<h2>No dishes found for category: {category_name}</h2>"
