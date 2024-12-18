@@ -19,7 +19,7 @@ def init_db():
         with open("database.db", 'w') as file:
             pass 
     else:
-        print(f"The file '{"database.db"}' already exists.")
+        print(f"The file \"database.db\" already exists.")
     with app.app_context():
         db = get_db()
         cursor = db.cursor()

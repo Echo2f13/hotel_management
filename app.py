@@ -594,7 +594,7 @@ def category_page(category_name):
     for dish in category_data:
         dishes_html += f'''
         <div class="dish-card">
-            <img src="/static/{dish['id']}.jpg" alt="{dish['item_name']}">
+            <img src="/static/img/{dish['id']}.jpg" alt="{dish['item_name']}">
             <h3>{dish['item_name']}</h3>
             <p>{dish['price']} <br> ID: {dish['id']}</p>
             <button onclick="alert('Added {dish['item_name']} to cart')">Add</button>
