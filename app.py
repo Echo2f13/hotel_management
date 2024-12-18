@@ -3,7 +3,7 @@ from flask import Flask, render_template, request, redirect, url_for
 
 app = Flask(__name__)
 
-# Staff credentials
+#staff cred
 STAFF_EMAIL = "staff@gmail.com"
 STAFF_PASSWORD = "Staff@123"
 cart_data = [
