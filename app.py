@@ -1,9 +1,17 @@
-from db import init_db, get_menu_data_from_db, get_categories_from_db, get_dishes_for_category
-from flask import Flask, render_template, request, redirect, url_for
+from db import init_db, get_menu_data_from_db, get_categories_from_db, get_dishes_for_category, get_db
+from flask import Flask, render_template, request, redirect, url_for, session
+from uuid import uuid4
+import secrets
 
 app = Flask(__name__)
 init_db()
+app.secret_key = secrets.token_hex(24)
 menu_db = get_menu_data_from_db
+
+@app.before_request
+def ensure_session():
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid4())
 
 # Staff credentials
 STAFF_EMAIL = "staff@gmail.com"
@@ -596,8 +604,13 @@ def category_page(category_name):
         <div class="dish-card">
             <img src="/static/img/{dish['id']}.jpg" alt="{dish['item_name']}">
             <h3>{dish['item_name']}</h3>
-            <p>{dish['price']} <br> ID: {dish['id']}</p>
-            <button onclick="alert('Added {dish['item_name']} to cart')">Add</button>
+            <form action="/add_to_cart" method="POST" style="margin-top: 10px;">
+                <input type="hidden" name="session_id" value="{session['session_id']}" >
+                <input type="hidden" name="item_id" value="{dish['id']}" >
+                <label for="quantity_{dish['id']}">Quantity:</label>
+                <input type="number" id="quantity_{dish['id']}" name="quantity" value="1" min="1" style="width: 60px; margin-left: 5px;">
+                <button type="submit">Add to Cart</button>
+            </form>
         </div>
         '''
     
@@ -714,6 +727,35 @@ def category_page(category_name):
     </html>
     '''
     return html_content
+
+@app.route("/add_to_cart", methods=["POST"])
+def add_to_cart():
+    item_id = request.form.get("item_id")
+    quantity = int(request.form.get("quantity", 1))  # Default quantity is 1
+    session_id = session.get('session_id')
+
+    # Fetch item details from the Menu table
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT id, item_name, price FROM Menu WHERE id = ?", (item_id,))
+    item = cursor.fetchone()
+
+    if not item:
+        return {"success": False, "message": f"Item with ID {item_id} not found."}, 404
+    if not session_id:
+        return {"success": False, "message": f"Item with ID {    session_id } not found."}, 404
+
+
+    # Insert the item into the Cart table
+    cursor.execute(
+        "INSERT INTO Cart (item, quantity, price, session_id) VALUES (?, ?, ?, ?)",
+        (item["id"], quantity, item["price"] * quantity, session_id)
+    )
+    db.commit()
+
+    return {"success": True, "message": f"Added {quantity} of {item['item_name']} to the cart."}
+
+
 
 @app.route("/cart")
 def cart_page():

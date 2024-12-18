@@ -2,6 +2,9 @@ from flask import Flask, g
 import sqlite3
 import os
 
+
+
+
 app = Flask(__name__)
 DATABASE = os.path.join(os.getcwd(), "database.db")
 
@@ -61,6 +64,7 @@ def init_db():
                     item INTEGER NOT NULL,
                     quantity INTEGER NOT NULL,
                     price FLOAT NOT NULL,
+                    session_id INTEGER NOT NULL,
                     FOREIGN KEY (item) REFERENCES Menu (id)
                 )
             ''')
@@ -102,3 +106,7 @@ def get_dishes_for_category(category_name):
     cursor.execute("SELECT * FROM Menu WHERE category = ?", (category_name,))
     dishes = cursor.fetchall()
     return dishes
+
+from flask import request, redirect, url_for
+
+
