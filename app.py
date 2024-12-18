@@ -219,7 +219,7 @@ def staff_dashboard():
             """
         menu_html += "</table>"
 
-    # Generate Staff HTML
+
     staff_html = """
     <h3>Staff Members</h3>
     <table border="1" style="width:100%; margin: 10px 0;">
