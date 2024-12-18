@@ -9,6 +9,7 @@ cart_data = [
     {'dish_name': 'Chicken Biryani', 'price': 200, 'quantity': 2},
     {'dish_name': 'Samosa', 'price': 50, 'quantity': 4}
 ]
+staff_data = []
 # Updated menu data with Cool Drinks (Thums Up, Maaza, Pepsi)
 menu_data = {
     'Biryani': [
@@ -28,9 +29,7 @@ menu_data = {
     ],
     'Desserts': [
         {'id': '10', 'name': 'Gulab Jamun', 'price': '₹100'},
-        {'id': '11', 'name': 'Ras Malai', 'price': '₹120'}
-    ],
-    'Cool Drinks': [
+        {'id': '11', 'name': 'Ras Malai', 'price': '₹120'},
         {'id': '12', 'name': 'Thums Up', 'price': '₹60'},
         {'id': '13', 'name': 'Maaza', 'price': '₹60'},
         {'id': '14', 'name': 'Pepsi', 'price': '₹60'}
@@ -133,21 +132,136 @@ def staff_login():
     '''
 @app.route("/staff-dashboard", methods=["GET", "POST"])
 def staff_dashboard():
-    if request.method == "POST":
-        # Get form data for adding a new dish
-        category = request.form['category'].capitalize()
-        dish_id = request.form['id']
-        dish_name = request.form['name']
-        dish_price = request.form['price']
+    global staff_data  # Example: {'staff_id': [{'id': '001', 'name': 'John', 'role': 'Manager', 'age': '30'}]}
 
-        # Validate and update the menu data
-        if category in menu_data:
-            new_dish = {'id': dish_id, 'name': dish_name, 'price': dish_price}
-            menu_data[category].append(new_dish)
-        else:
-            menu_data[category] = [{'id': dish_id, 'name': dish_name, 'price': dish_price}]
+    if request.method == "POST":
+        action = request.form['action']
+
+        if action == 'Add Dish':
+            category = request.form['category'].capitalize()
+            dish_id = request.form['id']
+            dish_name = request.form['name']
+            dish_price = request.form['price']
+
+            if category in menu_data:
+                menu_data[category].append({'id': dish_id, 'name': dish_name, 'price': dish_price})
+            else:
+                menu_data[category] = [{'id': dish_id, 'name': dish_name, 'price': dish_price}]
+
+        elif action == 'Delete Dish':
+            category = request.form['category']
+            dish_id = request.form['id']
+            menu_data[category] = [dish for dish in menu_data[category] if dish['id'] != dish_id]
+
+        elif action == 'Edit Dish':
+            category = request.form['category']
+            dish_id = request.form['id']
+            new_name = request.form['new_name']
+            new_price = request.form['new_price']
+            for dish in menu_data[category]:
+                if dish['id'] == dish_id:
+                    dish['name'] = new_name
+                    dish['price'] = new_price
+
+        elif action == 'Add Staff':
+            staff_id = request.form['staff_id']
+            staff_name = request.form['staff_name']
+            staff_role = request.form['staff_role']
+            staff_age = request.form['staff_age']
+
+            staff_data.append({
+                'id': staff_id,
+                'name': staff_name,
+                'role': staff_role,
+                'age': staff_age
+            })
+
+        elif action == 'Delete Staff':
+            staff_id = request.form['staff_id']
+            staff_data = [staff for staff in staff_data if staff['id'] != staff_id]
 
         return redirect('/staff-dashboard')
+
+    # Generate Menu HTML
+    menu_html = ""
+    for category, dishes in menu_data.items():
+        menu_html += f"<h3>{category}</h3>"
+        menu_html += """
+        <table border="1" style="width:100%; margin: 10px 0;">
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Actions</th>
+            </tr>
+        """
+        for dish in dishes:
+            menu_html += f"""
+            <tr>
+                <td>{dish['id']}</td>
+                <td>{dish['name']}</td>
+                <td>{dish['price']}</td>
+                <td>
+                    <form action="/staff-dashboard" method="POST" style="display:inline;">
+                        <input type="hidden" name="category" value="{category}">
+                        <input type="hidden" name="id" value="{dish['id']}">
+                        <input type="submit" name="action" value="Delete Dish">
+                    </form>
+                    <form action="/staff-dashboard" method="POST" style="display:inline;">
+                        <input type="hidden" name="category" value="{category}">
+                        <input type="hidden" name="id" value="{dish['id']}">
+                        <input type="text" name="new_name" placeholder="New Name" required>
+                        <input type="text" name="new_price" placeholder="New Price" required>
+                        <input type="submit" name="action" value="Edit Dish">
+                    </form>
+                </td>
+            </tr>
+            """
+        menu_html += "</table>"
+
+    # Generate Staff HTML
+    staff_html = """
+    <h3>Staff Members</h3>
+    <table border="1" style="width:100%; margin: 10px 0;">
+        <tr>
+            <th>Staff ID</th>
+            <th>Name</th>
+            <th>Role</th>
+            <th>Age</th>
+            <th>Actions</th>
+        </tr>
+    """
+    for staff in staff_data:
+        staff_html += f"""
+        <tr>
+            <td>{staff['id']}</td>
+            <td>{staff['name']}</td>
+            <td>{staff['role']}</td>
+            <td>{staff['age']}</td>
+            <td>
+                <form action="/staff-dashboard" method="POST" style="display:inline;">
+                    <input type="hidden" name="staff_id" value="{staff['id']}">
+                    <input type="submit" name="action" value="Delete Staff">
+                </form>
+            </td>
+        </tr>
+        """
+    staff_html += "</table>"
+
+    staff_html += """
+    <h3>Add a New Staff Member</h3>
+    <form action="/staff-dashboard" method="POST">
+        <label for="staff_id">Staff ID:</label><br>
+        <input type="text" id="staff_id" name="staff_id" required><br>
+        <label for="staff_name">Name:</label><br>
+        <input type="text" id="staff_name" name="staff_name" required><br>
+        <label for="staff_role">Role:</label><br>
+        <input type="text" id="staff_role" name="staff_role" required><br>
+        <label for="staff_age">Age:</label><br>
+        <input type="text" id="staff_age" name="staff_age" required><br>
+        <input type="submit" name="action" value="Add Staff">
+    </form>
+    """
 
     return f'''
     <!DOCTYPE html>
@@ -201,30 +315,23 @@ def staff_dashboard():
                 display: none;
                 background-color: white;
                 padding: 20px;
-                margin-top: 20px;
+                margin: 20px auto;
+                width: 50%;
                 box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
                 border-radius: 10px;
-                text-align: center;
             }}
             .section.active {{
                 display: block;
             }}
-            #update-menu-form input {{
-                width: 100%;
-                padding: 10px;
-                margin: 10px 0;
-                font-size: 16px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-            }}
         </style>
         <script>
             function showSection(sectionId) {{
-                var sections = document.querySelectorAll('.section');
-                sections.forEach(function(section) {{
-                    section.classList.remove('active');
+                // Hide all sections
+                document.querySelectorAll('.section').forEach(section => {{
+                    section.style.display = 'none';
                 }});
-                document.getElementById(sectionId).classList.add('active');
+                // Show the selected section
+                document.getElementById(sectionId).style.display = 'block';
             }}
         </script>
     </head>
@@ -238,8 +345,9 @@ def staff_dashboard():
         <div class="buttons-container">
             <button onclick="showSection('profile-section')">Profile</button>
             <button onclick="showSection('update-menu-form')">Update Menu</button>
-            <button onclick="showSection('order-details-page')">Order Details</button>
-            <button>Logout</button>
+            <button onclick="showSection('staff-section')">Staff Members</button>
+            <button>Order Detail</button>
+            <button onclick="window.location.href='/'">Logout</button>
         </div>
 
         <!-- Profile Section -->
@@ -251,8 +359,10 @@ def staff_dashboard():
             <p><strong>Mobile Number:</strong> 1234567890</p>
         </div>
 
-        <!-- Menu Update Form -->
+        <!-- Menu Update Section -->
         <div id="update-menu-form" class="section">
+            <h3>Update Menu</h3>
+            {menu_html}
             <h3>Add a New Dish</h3>
             <form action="/staff-dashboard" method="POST">
                 <label for="category">Category:</label><br>
@@ -263,27 +373,19 @@ def staff_dashboard():
                 <input type="text" id="name" name="name" required><br>
                 <label for="price">Price:</label><br>
                 <input type="text" id="price" name="price" required><br>
-                <input type="submit" value="Add Dish">
+                <input type="submit" name="action" value="Add Dish">
             </form>
         </div>
-        <!-- Menu Update Form -->
-        <div id="order-details-page" class="section">
-            <h3>Add a New Dish</h3>
-            <form action="/staff-dashboard" method="POST">
-                <label for="category">Category:</label><br>
-                <input type="text" id="category" name="category" required><br>
-                <label for="id">Dish ID:</label><br>
-                <input type="text" id="id" name="id" required><br>
-                <label for="name">Dish Name:</label><br>
-                <input type="text" id="name" name="name" required><br>
-                <label for="price">Price:</label><br>
-                <input type="text" id="price" name="price" required><br>
-                <input type="submit" value="Add Dish">
-            </form>
+
+        <!-- Staff Section -->
+        <div id="staff-section" class="section">
+            {staff_html}
         </div>
     </body>
     </html>
     '''
+
+
 
 @app.route("/")
 def home():
@@ -369,7 +471,6 @@ def customer_login():
         </div>
         <div style="display: flex; flex-direction: column; align-items: center; margin-top: 50px;">
             <button style="margin: 10px; padding: 10px 20px; background-color: #63a4ff; border: none; color: white;" onclick="window.location.href='/menu'">Show Menu</button>
-            
             <button style="margin: 10px; padding: 10px 20px; background-color: #45b39d; border: none; color: white;">Review Items</button>
             <button style="margin: 10px; padding: 10px 20px; background-color: #28a745; border: none; color: white;" onclick="window.location.href='/'">Exit</button>
         </div>
@@ -465,7 +566,6 @@ def show_menu():
                 <button onclick="window.location.href='/category/starters'">Starters</button>
                 <button onclick="window.location.href='/category/curries'">Curries</button>
                 <button onclick="window.location.href='/category/desserts'">Desserts</button>
-                <button onclick="window.location.href='/category/cooldrinks'">Cool Drinks</button>
             </div>
             
             <!-- Right-side dishes -->
@@ -476,7 +576,6 @@ def show_menu():
     </body>
     </html>
     '''
-
 @app.route("/category/<category_name>")
 def category_page(category_name):
     category_data = menu_data.get(category_name.capitalize(), [])
@@ -597,7 +696,6 @@ def category_page(category_name):
                 <button onclick="window.location.href='/category/starters'">Starters</button>
                 <button onclick="window.location.href='/category/curries'">Curries</button>
                 <button onclick="window.location.href='/category/desserts'">Desserts</button>
-                <button onclick="window.location.href='/category/cooldrinks'">Cool Drinks</button>
             </div>
             <div class="dish-grid">
                 {dishes_html}
@@ -606,6 +704,7 @@ def category_page(category_name):
     </body>
     </html>
     '''
+
 @app.route("/cart")
 def cart_page():
     total_price = 0
