@@ -1,11 +1,11 @@
-from db import init_db
-from db_m import get_data_from_db
+from db import init_db, get_menu_data_from_db, get_categories_from_db, get_dishes_for_category
 from flask import Flask, render_template, request, redirect, url_for
 
-menu_data_db = get_data_from_db()
 app = Flask(__name__)
+init_db()
+menu_db = get_menu_data_from_db
 
-#staff cred
+# Staff credentials
 STAFF_EMAIL = "staff@gmail.com"
 STAFF_PASSWORD = "Staff@123"
 cart_data = [
@@ -135,7 +135,7 @@ def staff_login():
     '''
 @app.route("/staff-dashboard", methods=["GET", "POST"])
 def staff_dashboard():
-    global staff_data  
+    global staff_data  # Example: {'staff_id': [{'id': '001', 'name': 'John', 'role': 'Manager', 'age': '30'}]}
 
     if request.method == "POST":
         action = request.form['action']
@@ -185,8 +185,9 @@ def staff_dashboard():
 
         return redirect('/staff-dashboard')
 
+    # Generate Menu HTML
     menu_html = ""
-    for category, dishes in menu_data.items():
+    for category, item_name in menu_db.items():
         menu_html += f"<h3>{category}</h3>"
         menu_html += """
         <table border="1" style="width:100%; margin: 10px 0;">
@@ -197,11 +198,11 @@ def staff_dashboard():
                 <th>Actions</th>
             </tr>
         """
-        for dish in dishes:
+        for dish in item_name:
             menu_html += f"""
             <tr>
-                <td>{data['id']}</td>
-                <td>{dish['name']}</td>
+                <td>{dish['id']}</td>
+                <td>{dish['item_name']}</td>
                 <td>{dish['price']}</td>
                 <td>
                     <form action="/staff-dashboard" method="POST" style="display:inline;">
@@ -221,7 +222,7 @@ def staff_dashboard():
             """
         menu_html += "</table>"
 
-
+    # Generate Staff HTML
     staff_html = """
     <h3>Staff Members</h3>
     <table border="1" style="width:100%; margin: 10px 0;">
@@ -482,36 +483,39 @@ def customer_login():
 
 @app.route("/menu")
 def show_menu():
-    return '''
+    categories = get_categories_from_db()  # Fetch categories from DB
+    category_buttons = ''.join([f'<button onclick="window.location.href=\'/category/{category}\'">{category.capitalize()}</button>' for category in categories])
+    
+    html_content = f'''
     <!DOCTYPE html>
     <html>
     <head>
         <title>Menu</title>
         <style>
-            body {
+            body {{
                 font-family: Arial, sans-serif;
                 text-align: center;
                 margin: 0;
                 padding: 0;
                 background-color: #f4f4f4;
-            }
-            header {
+            }}
+            header {{
                 background-color: #4CAF50;
                 color: white;
                 padding: 20px 0;
                 font-size: 24px;
-            }
-            .menu-container {
+            }}
+            .menu-container {{
                 display: flex;
                 justify-content: space-between;
                 margin: 30px;
-            }
-            .categories {
+            }}
+            .categories {{
                 width: 20%;
                 text-align: left;
                 padding-right: 20px;
-            }
-            .categories button {
+            }}
+            .categories button {{
                 margin: 10px 0;
                 padding: 15px 30px;
                 font-size: 16px;
@@ -521,38 +525,38 @@ def show_menu():
                 border-radius: 5px;
                 cursor: pointer;
                 width: 100%;
-            }
-            .categories button:hover {
+            }}
+            .categories button:hover {{
                 background-color: #45a049;
-            }
-            .dish-grid {
+            }}
+            .dish-grid {{
                 display: flex;
                 flex-wrap: wrap;
                 justify-content: center;
                 gap: 20px;
                 width: 75%;
-            }
-            .dish-card {
+            }}
+            .dish-card {{
                 width: 200px;
                 padding: 10px;
                 background-color: white;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
                 border-radius: 10px;
                 text-align: center;
-            }
-            .dish-card img {
+            }}
+            .dish-card img {{
                 width: 100%;
                 height: auto;
                 border-radius: 5px;
-            }
-            .dish-card h3 {
+            }}
+            .dish-card h3 {{
                 margin-top: 10px;
                 font-size: 18px;
-            }
-            .dish-card p {
+            }}
+            .dish-card p {{
                 margin-top: 5px;
                 font-size: 16px;
-            }
+            }}
         </style>
     </head>
     <body>
@@ -564,10 +568,7 @@ def show_menu():
         <div class="menu-container">
             <!-- Left-side categories -->
             <div class="categories">
-                <button onclick="window.location.href='/category/biryani'">Biryani</button>
-                <button onclick="window.location.href='/category/starters'">Starters</button>
-                <button onclick="window.location.href='/category/curries'">Curries</button>
-                <button onclick="window.location.href='/category/desserts'">Desserts</button>
+                {category_buttons}
             </div>
             
             <!-- Right-side dishes -->
@@ -578,25 +579,34 @@ def show_menu():
     </body>
     </html>
     '''
+    return html_content
+
 @app.route("/category/<category_name>")
 def category_page(category_name):
-    category_data = menu_data_db.get(category_name.capitalize(), [])
+    # Fetch dishes for the given category
+    category_data = get_dishes_for_category(category_name.capitalize())
     
     if not category_data:
         return f"<h2>No dishes found for category: {category_name}</h2>"
     
+    # Generate the dish cards dynamically
     dishes_html = ""
     for dish in category_data:
         dishes_html += f'''
         <div class="dish-card">
-            <img src="/static/{dish['id']}.jpg" alt="{dish['name']}">
-            <h3>{dish['name']}</h3>
+            <img src="/static/{dish['id']}.jpg" alt="{dish['item_name']}">
+            <h3>{dish['item_name']}</h3>
             <p>{dish['price']} <br> ID: {dish['id']}</p>
-            <button onclick="alert('Added {dish['name']} to cart')">Add</button>
+            <button onclick="alert('Added {dish['item_name']} to cart')">Add</button>
         </div>
         '''
     
-    return f'''
+    # Generate category buttons dynamically
+    categories = get_categories_from_db()  # Fetch categories from DB
+    category_buttons = ''.join([f'<button onclick="window.location.href=\'/category/{category}\'">{category.capitalize()}</button>' for category in categories])
+    
+    # HTML structure for the page
+    html_content = f'''
     <!DOCTYPE html>
     <html>
     <head>
@@ -694,10 +704,7 @@ def category_page(category_name):
         <h2>{category_name.capitalize()}</h2>
         <div class="menu-container">
             <div class="categories">
-                <button onclick="window.location.href='/category/biryani'">Biryani</button>
-                <button onclick="window.location.href='/category/starters'">Starters</button>
-                <button onclick="window.location.href='/category/curries'">Curries</button>
-                <button onclick="window.location.href='/category/desserts'">Desserts</button>
+                {category_buttons}
             </div>
             <div class="dish-grid">
                 {dishes_html}
@@ -706,6 +713,7 @@ def category_page(category_name):
     </body>
     </html>
     '''
+    return html_content
 
 @app.route("/cart")
 def cart_page():
@@ -818,6 +826,5 @@ def cart_page():
     </html>
     '''
 
-init_db()
 if __name__ == "__main__":
     app.run(debug=True)

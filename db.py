@@ -2,7 +2,7 @@ from flask import Flask, g
 import sqlite3
 import os
 
-db_app = Flask(__name__)
+app = Flask(__name__)
 DATABASE = os.path.join(os.getcwd(), "database.db")
 
 def get_db():
@@ -20,7 +20,7 @@ def init_db():
             pass 
     else:
         print(f"The file '{"database.db"}' already exists.")
-    with db_app.app_context():
+    with app.app_context():
         db = get_db()
         cursor = db.cursor()
         cursor.execute("PRAGMA foreign_keys = ON")
@@ -81,3 +81,24 @@ def init_db():
         except Exception as e:
             print(f"Error creating Order table: {e}")
         db.commit()
+
+def get_menu_data_from_db():
+    db = get_db()  
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM Menu") 
+    data = cursor.fetchall()  
+    return data
+
+def get_categories_from_db():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT DISTINCT category FROM Menu")  # Fetch distinct categories
+    categories = cursor.fetchall()  # Get all categories
+    return [row['category'] for row in categories]
+
+def get_dishes_for_category(category_name):
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM Menu WHERE category = ?", (category_name,))
+    dishes = cursor.fetchall()
+    return dishes

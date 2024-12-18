@@ -2,7 +2,7 @@ from flask import Flask, g
 import sqlite3
 import os
 
-db_app = Flask(__name__)
+app = Flask(__name__)
 DATABASE = os.path.join(os.getcwd(), "database.db")
 
 def get_db():
@@ -20,8 +20,9 @@ def get_data_from_db():
     return data
 
 # Run this part of the code within the Flask app context
-with db_app.app_context():
+with app.app_context():
     menu_data = get_data_from_db()  # Get data from the database
     with open('output.txt', 'w', encoding='utf-8') as f:
         for row in menu_data:
             f.write(str(dict(row)) + '\n')
+            # category_data = menu_data.get(category.title(), [])
