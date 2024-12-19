@@ -76,9 +76,13 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS `Order` (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id TEXT NOT NULL,
-                    total_price FLOAT NOT NULL
+                    total_price FLOAT NOT NULL,
+                    table_no INTEGER NOT NULL,
+                    date DATE,
+                    time TIME
                 )
             ''')
+
             print("Order table created successfully.")
         except Exception as e:
             print(f"Error creating Order table: {e}")

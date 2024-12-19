@@ -1,5 +1,5 @@
 from db import init_db, get_menu_data_from_db, get_categories_from_db, get_dishes_for_category, get_db, get_price_from_db
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, render_template_string
 from uuid import uuid4
 import secrets
 from datetime import datetime
@@ -47,7 +47,8 @@ menu_data = {
         {'id': '14', 'name': 'Pepsi', 'price': '₹60'}
     ]
 }
-@app.route("/staff-login", methods=["GET", "POST"])
+
+
 @app.route("/staff-login", methods=["GET", "POST"])
 def staff_login():
     error_message = ""
@@ -148,6 +149,7 @@ def staff_login():
                 <input type="text" name="email" placeholder="Enter Email" required><br>
                 <input type="password" name="password" placeholder="Enter Password" required><br>
                 <button type="submit">Login</button>
+                <button style="margin: 10px; padding: 10px 20px; background-color: #28a745; border: none; color: white;" onclick="window.location.href='/'">Exit</button>
             </form>
             <p class="error-message">{error_message}</p>
         </div>
@@ -181,12 +183,12 @@ def staff_dashboard(pk):
             # Update the dish in the database
             cursor.execute('''
                 UPDATE Menu
-                SET name = ?, price = ?
+                SET item_name = ?, price = ?
                 WHERE id = ? AND category = ?
             ''', (new_name, new_price, dish_id, category))
             db.commit()
         
-        elif action == 'Delete Staff':
+        elif action == 'Delete_Staff':
             staff_id = request.form['staff_id']
             # Delete the staff member from the database
             cursor.execute('''
@@ -214,25 +216,30 @@ def staff_dashboard(pk):
             dish_price = request.form['dish_price']
             # Add a new dish to the database
             cursor.execute('''
-                INSERT INTO Menu (category, name, price)
+                INSERT INTO Menu (category, item_name, price)
                 VALUES (?, ?, ?)
             ''', (category, dish_name, dish_price))
             db.commit()
         
-        elif action == 'Add Staff':
+        elif action == 'Add_Staff':
             staff_id = request.form['staff_id']
             staff_name = request.form['staff_name']
-            staff_role = request.form['staff_role']
             staff_age = request.form['staff_age']
+            staff_mobile = request.form['staff_mobile']
+            staff_email = request.form['staff_email']
+            staff_pass = request.form['staff_pass']
+            staff_dob = request.form['staff_dob']
+            staff_admin = request.form['staff_admin']
+            staff_role = request.form['staff_role']
             # Add a new staff member to the database
             cursor.execute('''
-                INSERT INTO Staff (id, name, role, age)
-                VALUES (?, ?, ?, ?)
-            ''', (staff_id, staff_name, staff_role, staff_age))
+                INSERT INTO Staff (staff_id, name, age, mobile_number, email, password, dob, admin, role)
+                VALUES (?, ?, ?, ?, ? , ? , ? , ? , ? )
+            ''', (staff_id, staff_name, staff_age, staff_mobile, staff_email, staff_pass, staff_dob, staff_admin, staff_role))
             db.commit()
     
     cursor.execute('''
-        SELECT id, name, role, age
+        SELECT id, name, role, age, admin
         FROM Staff
         WHERE id = ?
     ''', (pk,))
@@ -269,22 +276,50 @@ def staff_dashboard(pk):
                 <td>{dish['item_name']}</td>
                 <td>{dish['price']}</td>
                 <td>
-                    <form action="/staff-dashboard" method="POST" style="display:inline;">
+                    <form action="/staff-dashboard/{pk}" method="POST" style="display:inline;">
                         <input type="hidden" name="category" value="{category}">
                         <input type="hidden" name="id" value="{dish['id']}">
                         <input type="submit" name="action" value="Delete Dish">
                     </form>
-                    <form action="/staff-dashboard" method="POST" style="display:inline;">
+                    <form action="/staff-dashboard/{pk}" method="POST" style="display:inline;">
                         <input type="hidden" name="category" value="{category}">
                         <input type="hidden" name="id" value="{dish['id']}">
-                        <input type="text" name="new_name" placeholder="New Name">
-                        <input type="text" name="new_price" placeholder="New Price">
+                        <input type="text" name="new_name" placeholder="New Name" required>
+                        <input type="text" name="new_price" placeholder="New Price" required>
                         <input type="submit" name="action" value="Edit Dish">
                     </form>
                 </td>
             </tr>
             """
         menu_html += "</table>"
+    menu_html += f"""
+        <br>
+        <br>
+        <h2>Add a new item to Menu</h2>
+
+        <form action="/staff-dashboard/{pk}" method="POST" style="display:inline;">
+        <label for="category">Choose a Category:</label>
+            <select id="category" name="category">
+    """
+    for category, items in menu_data.items():
+        
+        menu_html += f"""
+                <option value="{category}">{category}</option>
+        """
+    menu_html += f"""
+            </select>
+            <br>
+            <br>
+            <label for="dish_name">Dish Name:</label><br>
+            <input type="text" id="staff_id" name="dish_name" required><br>
+            <br>
+            <label for="dish_price">Price:</label><br>
+            <input type="number" id="dish_price" name="dish_price" required><br>
+            <br>
+            <br>
+            <input type="submit" name="action" value="Add Dish">
+        </form>
+    """
 
     # Generate Staff HTML
     profile_html = f"""
@@ -292,6 +327,8 @@ def staff_dashboard(pk):
         <p><strong>Name:</strong> {staff_member['name']}</p>
         <p><strong>Role:</strong> {staff_member['role']}</p>
         <p><strong>Age:</strong> {staff_member['age']}</p>
+        """
+    profile_html_edit = f"""
         <form action="/staff-dashboard" method="POST">
             <input type="hidden" name="staff_id" value="{staff_member['id']}">
             <input type="text" name="staff_name" value="{staff_member['name']}" placeholder="New Name"><br>
@@ -300,6 +337,12 @@ def staff_dashboard(pk):
             <input type="submit" name="action" value="Edit Profile">
         </form>
         """
+    if staff_member and staff_member['admin'] == 1: 
+        staff_admin_page = f"""
+            <button onclick="toggleSection('staff-section')">Staff</button>
+        """
+    else:
+        staff_admin_page = "" 
     
     staff_html = f"""
         <h3>Staff Members</h3>
@@ -322,31 +365,111 @@ def staff_dashboard(pk):
             <td>{staff['role']}</td>
             <td>{staff['age']}</td>
             <td>
-                <form action="/staff-dashboard" method="POST" style="display:inline;">
+                <form action="/staff-dashboard/{pk}" method="POST" style="display:inline;">
                     <input type="hidden" name="staff_id" value="{staff['id']}">
-                    <input type="submit" name="action" value="Delete Staff">
+                    <input type="submit" name="action" value="Delete_Staff">
                 </form>
             </td>
         </tr>
         """
     staff_html += "</table>"
 
-    staff_html += """
+
+    cursor.execute('''
+        SELECT 
+            o.id AS order_id,  -- Fetch order_id
+            o.date, o.time, o.session_id, o.table_no,
+            m.item_name AS item_name, c.quantity, m.price AS item_price, 
+            (c.quantity * m.price) AS item_total_price, 
+            o.total_price AS order_total_price
+        FROM `Order` o
+        JOIN `Cart` c ON o.session_id = c.session_id
+        JOIN `Menu` m ON c.item = m.id
+        ORDER BY o.date DESC, o.time DESC
+    ''')
+
+    orders = cursor.fetchall()
+
+    # Group orders by session_id and table_no
+    orders_by_session = {}
+    for order in orders:
+        session_id = order[3]  # session_id
+        table_no = order[4]  # table_no
+        if (session_id, table_no) not in orders_by_session:
+            orders_by_session[(session_id, table_no)] = []
+        orders_by_session[(session_id, table_no)].append(order)
+
+    # Generate HTML for grouped orders
+    order_html = """
+        <h1>Order History</h1>
+    """
+
+    # Loop through grouped orders
+    for (session_id, table_no), grouped_orders in orders_by_session.items():
+        order_id = grouped_orders[0][0]  # Use the first entry's order_id
+        order_total_price = grouped_orders[0][9]  # Use the first entry's total_price for the order
+        order_date = grouped_orders[0][1]  # Order date
+        order_time = grouped_orders[0][2]  # Order time
+
+        order_html += f"""
+        <p><strong>Time: {order_time}, Date: {order_date}, Table No: {table_no}</strong></p>
+        <p>Total Order Price: ₹{order_total_price:.2f}</p>
+        <form action="/bill/{pk}/{order_id}" method="get" style="display: inline;">
+            <button type="submit" style="margin: 5px; padding: 8px 16px; background-color: #007bff; border: none; color: white; cursor: pointer;">
+                Show Bill Now
+            </button>
+        </form>
+
+        <table border="1" style="width: 100%; margin-top: 10px;">
+            <tr>
+                <th>Item Name</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total Price</th>
+            </tr>
+        """
+        for order in grouped_orders:
+            order_html += f"""
+                <tr>
+                    <td>{order[5]}</td> <!-- item_name -->
+                    <td>{order[6]}</td> <!-- quantity -->
+                    <td>{order[7]:.2f}</td> <!-- price -->
+                    <td>{order[8]:.2f}</td> <!-- item_total_price -->
+                </tr>
+            """
+        order_html += "</table><hr><br>"
+
+    # Render the order_html in your web framework as a response (Flask/Django etc.)
+
+
+    staff_html += f"""
     <h3>Add a New Staff Member</h3>
-    <form action="/staff-dashboard" method="POST">
+    <form action="/staff-dashboard/{pk}" method="POST">
         <label for="staff_id">Staff ID:</label><br>
         <input type="text" id="staff_id" name="staff_id" required><br>
         <label for="staff_name">Name:</label><br>
         <input type="text" id="staff_name" name="staff_name" required><br>
+        <label for="staff_age">Age:</label><br>
+        <input type="text" id="staff_role" name="staff_age" required><br>
+        <label for="staff_mobile">Mobile:</label><br>
+        <input type="text" id="staff_role" name="staff_mobile" required><br>
+        <label for="staff_email">Email:</label><br>
+        <input type="text" id="staff_role" name="staff_email" required><br>
+        <label for="staff_pass">Password:</label><br>
+        <input type="text" id="staff_role" name="staff_pass" required><br>
+        <label for="staff_dob">DoB:</label><br>
+        <input type="text" id="staff_role" name="staff_dob" placeholder="YYYY-MM-DD" required><br>
+        <label for="staff_admin">admin:</label><br>
+        <input type="text" id="staff_role" name="staff_admin" required><br>
         <label for="staff_role">Role:</label><br>
         <input type="text" id="staff_role" name="staff_role" required><br>
-        <label for="staff_age">Age:</label><br>
-        <input type="text" id="staff_age" name="staff_age" required><br>
-        <input type="submit" name="action" value="Add Staff">
+        <input type="submit" name="action" value="Add_Staff">
     </form>
     """
+    
 
     return f'''
+
     <!DOCTYPE html>
     <html>
     <head>
@@ -428,7 +551,9 @@ def staff_dashboard(pk):
             <span>Hotel Name</span>
             <div class="buttons-container">
                 <button onclick="toggleSection('menu-section')">Menu</button>
-                <button onclick="toggleSection('staff-section')">Staff</button>
+                {staff_admin_page}
+                <button onclick="toggleSection('order-section')">Order</button>
+                <button onclick="toggleSection('profile-section')">Profile</button>
                 <button onclick="location.href='/staff-login'">Logout</button>
             </div>
         </header>
@@ -437,6 +562,13 @@ def staff_dashboard(pk):
         </div>
         <div id="staff-section" class="section">
             {staff_html}
+        </div>
+        <div id="order-section" class="section">
+            {order_html}
+        </div>
+        <div id="profile-section" class="section">
+            {profile_html}
+            {profile_html_edit}
         </div>
         <script>
             function toggleSection(sectionId) {{
@@ -451,6 +583,166 @@ def staff_dashboard(pk):
     </html>
     '''
 
+@app.route("/bill/<int:pk>/<int:order_id>", methods=["GET"])
+def generate_bill(pk, order_id):
+    db = get_db()
+    cursor = db.cursor()
+
+    # Fetch the order details
+    cursor.execute('''
+        SELECT 
+            o.id AS order_id, o.date, o.time, o.total_price, o.table_no,
+            m.item_name AS item_name, c.quantity, m.price AS item_price, 
+            (c.quantity * m.price) AS item_total_price
+        FROM `Order` o
+        JOIN `Cart` c ON o.session_id = c.session_id
+        JOIN `Menu` m ON c.item = m.id
+        WHERE o.id = ?
+    ''', (order_id,))
+    
+    order_details = cursor.fetchall()
+    cursor.close()
+
+    # Check if order exists
+    if not order_details:
+        return "<h1>Order not found</h1>", 404
+
+    # Prepare data for rendering
+    cart_html = ""
+    subtotal = 0
+    for item in order_details:
+        cart_html += f"""
+            <tr>
+                <td>{item[5]}</td> <!-- item_name -->
+                <td>{item[6]}</td> <!-- quantity -->
+                <td>₹{item[7]:.2f}</td> <!-- item_price -->
+                <td>₹{item[8]:.2f}</td> <!-- item_total_price -->
+            </tr>
+        """
+        subtotal += item[8]
+
+    gst = subtotal * 0.02  # Calculate GST at 2%
+    final_price = subtotal + gst
+
+    # HTML Template
+    bill_template = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Hotel Invoice</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f7f7f7;
+            }}
+            .invoice-container {{
+                max-width: 800px;
+                margin: 0 auto;
+                background: #fff;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }}
+            .header {{
+                text-align: center;
+                margin-bottom: 20px;
+            }}
+            .header h1 {{
+                margin: 0;
+                font-size: 24px;
+            }}
+            .header p {{
+                margin: 5px 0;
+                font-size: 14px;
+                color: #666;
+            }}
+            .details, .items, .total {{
+                margin-bottom: 20px;
+            }}
+            .items table {{
+                width: 100%;
+                border-collapse: collapse;
+            }}
+            .items table th, .items table td {{
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }}
+            .items table th {{
+                background-color: #f4f4f4;
+                font-weight: bold;
+            }}
+            .total {{
+                text-align: right;
+            }}
+            .total h3 {{
+                margin: 0;
+                font-size: 20px;
+                color: #333;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="invoice-container">
+            <div class="header">
+                <h1>Hotel Name</h1>
+                <p>123 Luxury Lane, Downtown City</p>
+                <p>Phone: +1-234-567-890 | Email: contact@hotelabc.com</p>
+            </div>
+
+            <div class="details">
+                <table>
+                    <tr>
+                        <td><strong>Date:</strong> {order_details[0][1]}</td>
+                        <td><strong>Invoice Number:</strong> INV{order_id}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Time:</strong> {order_details[0][2]}</td>
+                        <td><strong>Table Number:</strong> {order_details[0][4]}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="items">
+                <h2>Bill Details</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {cart_html}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="total">
+                <h3>Subtotal: ₹{subtotal:.2f}</h3>
+                <h3>GST (2%): ₹{gst:.2f}</h3>
+                <h3><strong>Total Amount: ₹{final_price:.2f}</strong></h3>
+                <br>
+                <button style="margin: 10px; padding: 10px 20px; background-color: #28a745; border: none; color: white;" onclick="window.print()">Print Page</button>
+                <button style="margin: 10px; padding: 10px 20px; background-color: #28a745; border: none; color: white;" onclick="window.location.href='/staff-dashboard/{pk}'">Back</button>
+                
+                <br>
+            </div>
+            <div class="footer">
+                <p>Thank you for staying with us!</p>
+                <p>We look forward to serving you again.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return render_template_string(bill_template)
 
 @app.route("/")
 def home():
@@ -810,11 +1102,16 @@ def category_page(category_name):
 @app.route("/cart", methods=["GET", "POST"])
 def cart_page():
     session_id = session.get('session_id')
+    
     db = get_db()
     cursor = db.cursor() 
 
     # If the request is POST, place the order
     if request.method == "POST":
+        current_datetime = datetime.now()  # Get current date and time
+        date = current_datetime.date()  # Extract date part
+        time = current_datetime.strftime("%H:%M:%S")
+        cart_table_no = request.form.get("cart_table_no")   
         cursor.execute('''
             SELECT SUM(m.price * c.quantity) 
             FROM Cart c
@@ -827,9 +1124,9 @@ def cart_page():
 
         # Insert into the Order table
         cursor.execute('''
-            INSERT INTO `Order` (session_id, total_price)
-            VALUES (?, ?)
-        ''', (session_id, total_price))
+            INSERT INTO `Order` (session_id, total_price, date, time, table_no )
+            VALUES (?, ?, ?, ?, ?)
+        ''', (session_id, total_price, date, time, cart_table_no))
         db.commit()
 
         return redirect(url_for('bill_page'))
@@ -1006,6 +1303,8 @@ def cart_page():
             Total Price: ₹{total_price:.2f}
         </div>
         <form method="POST">
+            <label for="cart_table_no">Table no:</label>
+            <input type="number" id="cart_table_no" name="cart_table_no" required>
             <button class="order-button" type="submit">Order Now</button>
         </form>
         <button class="order-button" onclick="window.location.href='/category/Biryani'">Go Back</button>
