@@ -960,6 +960,168 @@ def cart_page():
     </html>
     '''
 
+@app.route("/bill")
+def bill_page():
+    session_id = session.get('session_id')
+    db = get_db()
+    cursor = db.cursor()
+
+    # Fetch cart items for the current session
+    cursor.execute('''
+        SELECT m.item_name, c.quantity, c.price
+        FROM Cart c
+        JOIN Menu m ON c.item = m.id
+        WHERE c.session_id = ?
+    ''', (session_id,))
+    cart_items = cursor.fetchall()
+
+    if not cart_items:
+        # If no items are in the cart, display a message
+        return '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Bill - Hotel</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    text-align: center;
+                    margin: 0;
+                    padding: 0;
+                    background-color: #f4f4f4;
+                }}
+                header {{
+                    background-color: #4CAF50;
+                    color: white;
+                    padding: 20px 0;
+                    font-size: 24px;
+                }}
+                .order-button {{
+                    margin-top: 30px;
+                    padding: 10px 20px;
+                    font-size: 18px;
+                    background-color: #FF5733;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                }}
+                .order-button:hover {{
+                    background-color: #FF4500;
+                }}
+            </style>
+        </head>
+        <body>
+            <header>
+                <span>Hotel Name</span>
+            </header>
+            <h2>Bill</h2>
+            <h3>Your cart is empty!</h3>
+            <button class="order-button" onclick="window.location.href='/category/Biryani'">Go Back</button>
+        </body>
+        </html>
+        '''
+
+    # Calculate total price and GST
+    total_price = sum(item[2] for item in cart_items)
+    gst = total_price * 0.02
+    final_price = total_price + gst
+
+    # Generate HTML table rows for cart items
+    cart_html = ""
+    for idx, item in enumerate(cart_items, start=1):
+        item_name, quantity, price = item
+        cart_html += f'''
+        <tr>
+            <td>{idx}</td>
+            <td>{item_name}</td>
+            <td>₹{price:.2f}</td>
+            <td>{quantity}</td>
+            <td>₹{price * quantity:.2f}</td>
+        </tr>
+        '''
+
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Bill - Hotel</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                text-align: center;
+                margin: 0;
+                padding: 0;
+                background-color: #f4f4f4;
+            }}
+            header {{
+                background-color: #4CAF50;
+                color: white;
+                padding: 20px 0;
+                font-size: 24px;
+            }}
+            .cart-table {{
+                width: 80%;
+                margin: 20px auto;
+                border-collapse: collapse;
+                text-align: left;
+            }}
+            .cart-table th, .cart-table td {{
+                border: 1px solid #ddd;
+                padding: 10px;
+            }}
+            .cart-table th {{
+                background-color: #4CAF50;
+                color: white;
+            }}
+            .total-price {{
+                margin-top: 20px;
+                font-size: 20px;
+                font-weight: bold;
+            }}
+            .order-button {{
+                margin-top: 30px;
+                padding: 10px 20px;
+                font-size: 18px;
+                background-color: #FF5733;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }}
+            .order-button:hover {{
+                background-color: #FF4500;
+            }}
+        </style>
+    </head>
+    <body>
+        <header>
+            <span>Hotel Name</span>
+        </header>
+        <h2>Bill</h2>
+        <table class="cart-table">
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>Dish Name</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Total Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {cart_html}
+            </tbody>
+        </table>
+        <div class="total-price">
+            Subtotal: ₹{total_price:.2f}<br>
+            GST (2%): ₹{gst:.2f}<br>
+            <strong>Final Total: ₹{final_price:.2f}</strong>
+        </div>
+        <button class="order-button" onclick="window.location.href='/cart'">Back to Cart</button>
+    </body>
+    </html>
+    '''
 
 
 if __name__ == "__main__":
