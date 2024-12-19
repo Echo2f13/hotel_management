@@ -105,6 +105,14 @@ def get_dishes_for_category(category_name):
     dishes = cursor.fetchall()
     return dishes
 
+def get_price_from_db():
+    db = get_db()
+    cursor = db.cursor()
+    # Fetch item names and their prices
+    cursor.execute("SELECT item_name, price FROM Menu")
+    prices = cursor.fetchall()
+    return {row['item_name']: row['price'] for row in prices}
+
 from flask import request, redirect, url_for
 
 

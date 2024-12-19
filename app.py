@@ -1,7 +1,8 @@
-from db import init_db, get_menu_data_from_db, get_categories_from_db, get_dishes_for_category, get_db
+from db import init_db, get_menu_data_from_db, get_categories_from_db, get_dishes_for_category, get_db, get_price_from_db
 from flask import Flask, render_template, request, redirect, url_for, session
 from uuid import uuid4
 import secrets
+from datetime import datetime
 
 app = Flask(__name__)
 init_db()
@@ -758,7 +759,7 @@ def category_page(category_name):
 def cart_page():
     session_id = session.get('session_id')
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor() 
 
     # If the request is POST, place the order
     if request.method == "POST":
@@ -779,7 +780,7 @@ def cart_page():
         ''', (session_id, total_price))
         db.commit()
 
-        return redirect(url_for('cart_page'))
+        return redirect(url_for('bill_page'))
 
     # Fetch cart items for display
     cursor.execute('''
@@ -1022,106 +1023,143 @@ def bill_page():
         </html>
         '''
 
-    # Calculate total price and GST
-    total_price = sum(item[2] for item in cart_items)
-    gst = total_price * 0.02
-    final_price = total_price + gst
+    prices = get_price_from_db()  # Returns a dictionary {item_name: price}
 
-    # Generate HTML table rows for cart items
+    # Generate HTML rows for the cart items
     cart_html = ""
+    total_price = 0  # Initialize total price
+
     for idx, item in enumerate(cart_items, start=1):
-        item_name, quantity, price = item
+        item_name, quantity, _ = item  # Unpack cart item details
+        item_price = prices.get(item_name, 0)  # Get price for the item, default to 0 if not found
+        item_total = item_price * quantity
+        total_price += item_total  # Accumulate total price
+        gst = total_price * 0.02
+        final_price = gst+total_price
+
+
+
         cart_html += f'''
         <tr>
-            <td>{idx}</td>
             <td>{item_name}</td>
-            <td>₹{price:.2f}</td>
             <td>{quantity}</td>
-            <td>₹{price * quantity:.2f}</td>
+            <td>₹{item_price:.2f}</td>
+            <td>₹{item_price * quantity:.2f}</td>
         </tr>
         '''
 
     return f'''
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-        <title>Bill - Hotel</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Hotel Invoice</title>
         <style>
             body {{
                 font-family: Arial, sans-serif;
-                text-align: center;
                 margin: 0;
-                padding: 0;
-                background-color: #f4f4f4;
+                padding: 20px;
+                background-color: #f7f7f7;
             }}
-            header {{
-                background-color: #4CAF50;
-                color: white;
-                padding: 20px 0;
+            .invoice-container {{
+                max-width: 800px;
+                margin: 0 auto;
+                background: #fff;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }}
+            .header {{
+                text-align: center;
+                margin-bottom: 20px;
+            }}
+            .header h1 {{
+                margin: 0;
                 font-size: 24px;
             }}
-            .cart-table {{
-                width: 80%;
-                margin: 20px auto;
+            .header p {{
+                margin: 5px 0;
+                font-size: 14px;
+                color: #666;
+            }}
+            .details, .items, .total {{
+                margin-bottom: 20px;
+            }}
+            .items table {{
+                width: 100%;
                 border-collapse: collapse;
+            }}
+            .items table th, .items table td {{
+                border: 1px solid #ddd;
+                padding: 8px;
                 text-align: left;
             }}
-            .cart-table th, .cart-table td {{
-                border: 1px solid #ddd;
-                padding: 10px;
-            }}
-            .cart-table th {{
-                background-color: #4CAF50;
-                color: white;
-            }}
-            .total-price {{
-                margin-top: 20px;
-                font-size: 20px;
+            .items table th {{
+                background-color: #f4f4f4;
                 font-weight: bold;
             }}
-            .order-button {{
-                margin-top: 30px;
-                padding: 10px 20px;
-                font-size: 18px;
-                background-color: #FF5733;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
+            .total {{
+                text-align: right;
             }}
-            .order-button:hover {{
-                background-color: #FF4500;
+            .total h3 {{
+                margin: 0;
+                font-size: 20px;
+                color: #333;
             }}
         </style>
     </head>
     <body>
-        <header>
-            <span>Hotel Name</span>
-        </header>
-        <h2>Bill</h2>
-        <table class="cart-table">
-            <thead>
-                <tr>
-                    <th>S.No</th>
-                    <th>Dish Name</th>
-                    <th>Price</th>
-                    <th>Quantity</th>
-                    <th>Total Price</th>
-                </tr>
-            </thead>
-            <tbody>
-                {cart_html}
-            </tbody>
-        </table>
-        <div class="total-price">
-            Subtotal: ₹{total_price:.2f}<br>
-            GST (2%): ₹{gst:.2f}<br>
-            <strong>Final Total: ₹{final_price:.2f}</strong>
+        <div class="invoice-container">
+            <div class="header">
+                <h1>Hotel Name</h1>
+                <p>123 Luxury Lane, Downtown City</p>
+                <p>Phone: +1-234-567-890 | Email: contact@hotelabc.com</p>
+            </div>
+
+            <div class="details">
+                <table>
+                    <tr>
+                        <td><strong>Date:</strong> {datetime.now().strftime("%Y-%m-%d")}</td>
+                        <td><strong>Invoice Number:</strong> INV12345</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="items">
+                <h2>Bill Details</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {cart_html}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="total">
+                <h3>Subtotal: ₹{total_price:.2f}</h3>
+                <h3>GST (2%): ₹{gst:.2f}</h3>
+                <h3><strong>Total Amount: ₹{final_price:.2f}</strong></h3>
+                <button onclick="window.print()">Print Page</button>
+
+            </div>
+
+            <div class="footer">
+                <p>Thank you for staying with us!</p>
+                <p>We look forward to serving you again.</p>
+            </div>
         </div>
-        <button class="order-button" onclick="window.location.href='/cart'">Back to Cart</button>
     </body>
     </html>
     '''
+
 
 
 if __name__ == "__main__":
