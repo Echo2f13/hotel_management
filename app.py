@@ -48,15 +48,27 @@ menu_data = {
     ]
 }
 @app.route("/staff-login", methods=["GET", "POST"])
+@app.route("/staff-login", methods=["GET", "POST"])
 def staff_login():
     error_message = ""
     if request.method == "POST":
         email = request.form['email']
         password = request.form['password']
 
-        # Validate credentials
-        if email == STAFF_EMAIL and password == STAFF_PASSWORD:
-            return redirect(url_for('staff_dashboard'))
+        # Fetch staff details from the database
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute('''
+            SELECT id, name, email, password
+            FROM Staff
+            WHERE email = ?
+        ''', (email,))
+        staff = cursor.fetchone()
+
+        # Check if the staff exists and the password matches
+        if staff and staff['password'] == password:
+            # Redirect to staff dashboard with their primary key
+            return redirect(url_for('staff_dashboard', pk=staff['id']))
         else:
             error_message = "Incorrect credentials!"
 
@@ -142,61 +154,104 @@ def staff_login():
     </body>
     </html>
     '''
-@app.route("/staff-dashboard", methods=["GET", "POST"])
-def staff_dashboard():
-    global staff_data  # Example: {'staff_id': [{'id': '001', 'name': 'John', 'role': 'Manager', 'age': '30'}]}
 
-    if request.method == "POST":
-        action = request.form['action']
-
-        if action == 'Add Dish':
-            category = request.form['category'].capitalize()
-            dish_id = request.form['id']
-            dish_name = request.form['name']
-            dish_price = request.form['price']
-
-            if category in menu_data:
-                menu_data[category].append({'id': dish_id, 'name': dish_name, 'price': dish_price})
-            else:
-                menu_data[category] = [{'id': dish_id, 'name': dish_name, 'price': dish_price}]
-
-        elif action == 'Delete Dish':
+@app.route("/staff-dashboard/<int:pk>", methods=["GET", "POST"])
+def staff_dashboard(pk):
+    db = get_db()
+    cursor = db.cursor()
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'Delete Dish':
             category = request.form['category']
             dish_id = request.form['id']
-            menu_data[category] = [dish for dish in menu_data[category] if dish['id'] != dish_id]
-
+            # Delete the dish from the database
+            cursor.execute('''
+                DELETE FROM Menu
+                WHERE id = ? AND category = ?
+            ''', (dish_id, category))
+            db.commit()
+        
         elif action == 'Edit Dish':
             category = request.form['category']
             dish_id = request.form['id']
             new_name = request.form['new_name']
             new_price = request.form['new_price']
-            for dish in menu_data[category]:
-                if dish['id'] == dish_id:
-                    dish['name'] = new_name
-                    dish['price'] = new_price
-
+            # Update the dish in the database
+            cursor.execute('''
+                UPDATE Menu
+                SET name = ?, price = ?
+                WHERE id = ? AND category = ?
+            ''', (new_name, new_price, dish_id, category))
+            db.commit()
+        
+        elif action == 'Delete Staff':
+            staff_id = request.form['staff_id']
+            # Delete the staff member from the database
+            cursor.execute('''
+                DELETE FROM Staff
+                WHERE id = ?
+            ''', (staff_id,))
+            db.commit()
+        
+        elif action == 'Edit Profile':
+            staff_id = pk
+            new_name = request.form['staff_name']
+            new_role = request.form['staff_role']
+            new_age = request.form['staff_age']
+            # Update the staff member's profile in the database
+            cursor.execute('''
+                UPDATE Staff
+                SET name = ?, role = ?, age = ?
+                WHERE id = ?
+            ''', (new_name, new_role, new_age, staff_id))
+            db.commit()
+        
+        elif action == 'Add Dish':
+            category = request.form['category']
+            dish_name = request.form['dish_name']
+            dish_price = request.form['dish_price']
+            # Add a new dish to the database
+            cursor.execute('''
+                INSERT INTO Menu (category, name, price)
+                VALUES (?, ?, ?)
+            ''', (category, dish_name, dish_price))
+            db.commit()
+        
         elif action == 'Add Staff':
             staff_id = request.form['staff_id']
             staff_name = request.form['staff_name']
             staff_role = request.form['staff_role']
             staff_age = request.form['staff_age']
+            # Add a new staff member to the database
+            cursor.execute('''
+                INSERT INTO Staff (id, name, role, age)
+                VALUES (?, ?, ?, ?)
+            ''', (staff_id, staff_name, staff_role, staff_age))
+            db.commit()
+    
+    cursor.execute('''
+        SELECT id, name, role, age
+        FROM Staff
+        WHERE id = ?
+    ''', (pk,))
+    staff_member = cursor.fetchone()
 
-            staff_data.append({
-                'id': staff_id,
-                'name': staff_name,
-                'role': staff_role,
-                'age': staff_age
-            })
+    if not staff_member:
+        return redirect('/staff-login')
 
-        elif action == 'Delete Staff':
-            staff_id = request.form['staff_id']
-            staff_data = [staff for staff in staff_data if staff['id'] != staff_id]
-
-        return redirect('/staff-dashboard')
+    menu_data = {}
+    cursor.execute('SELECT * FROM Menu')
+    dishes = cursor.fetchall()
+    for dish in dishes:
+        if dish['category'] not in menu_data:
+            menu_data[dish['category']] = []
+        menu_data[dish['category']].append(dish)
 
     # Generate Menu HTML
     menu_html = ""
-    for category, item_name in menu_db.items():
+    for category, items in menu_data.items():
         menu_html += f"<h3>{category}</h3>"
         menu_html += """
         <table border="1" style="width:100%; margin: 10px 0;">
@@ -207,7 +262,7 @@ def staff_dashboard():
                 <th>Actions</th>
             </tr>
         """
-        for dish in item_name:
+        for dish in items:
             menu_html += f"""
             <tr>
                 <td>{dish['id']}</td>
@@ -222,8 +277,8 @@ def staff_dashboard():
                     <form action="/staff-dashboard" method="POST" style="display:inline;">
                         <input type="hidden" name="category" value="{category}">
                         <input type="hidden" name="id" value="{dish['id']}">
-                        <input type="text" name="new_name" placeholder="New Name" required>
-                        <input type="text" name="new_price" placeholder="New Price" required>
+                        <input type="text" name="new_name" placeholder="New Name">
+                        <input type="text" name="new_price" placeholder="New Price">
                         <input type="submit" name="action" value="Edit Dish">
                     </form>
                 </td>
@@ -232,17 +287,31 @@ def staff_dashboard():
         menu_html += "</table>"
 
     # Generate Staff HTML
-    staff_html = """
-    <h3>Staff Members</h3>
-    <table border="1" style="width:100%; margin: 10px 0;">
-        <tr>
-            <th>Staff ID</th>
-            <th>Name</th>
-            <th>Role</th>
-            <th>Age</th>
-            <th>Actions</th>
-        </tr>
-    """
+    staff_html = f"""
+        <h3>Staff Profile</h3>
+        <p><strong>Name:</strong> {staff_member['name']}</p>
+        <p><strong>Role:</strong> {staff_member['role']}</p>
+        <p><strong>Age:</strong> {staff_member['age']}</p>
+        <form action="/staff-dashboard" method="POST">
+            <input type="hidden" name="staff_id" value="{staff_member['id']}">
+            <input type="text" name="staff_name" value="{staff_member['name']}" placeholder="New Name"><br>
+            <input type="text" name="staff_role" value="{staff_member['role']}" placeholder="New Role"><br>
+            <input type="text" name="staff_age" value="{staff_member['age']}" placeholder="New Age"><br>
+            <input type="submit" name="action" value="Edit Profile">
+        </form>
+
+        <h3>Staff Members</h3>
+        <table border="1" style="width:100%; margin: 10px 0;">
+            <tr>
+                <th>Staff ID</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Age</th>
+                <th>Actions</th>
+            </tr>
+        """
+    cursor.execute('SELECT id, name, role, age FROM Staff')
+    staff_data = cursor.fetchall()
     for staff in staff_data:
         staff_html += f"""
         <tr>
@@ -335,68 +404,50 @@ def staff_dashboard():
             .section.active {{
                 display: block;
             }}
-        </style>
-        <script>
-            function showSection(sectionId) {{
-                // Hide all sections
-                document.querySelectorAll('.section').forEach(section => {{
-                    section.style.display = 'none';
-                }});
-                // Show the selected section
-                document.getElementById(sectionId).style.display = 'block';
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
             }}
-        </script>
+            th, td {{
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: center;
+            }}
+            th {{
+                background-color: #4CAF50;
+                color: white;
+            }}
+        </style>
     </head>
     <body>
         <header>
-            <div>
-                <img src="/static/logo.jpg" alt="Hotel Logo">
-                <span>Hotel Name</span>
+            <img src="/static/logo.jpg" alt="Hotel Logo">
+            <span>Hotel Name</span>
+            <div class="buttons-container">
+                <button onclick="toggleSection('menu-section')">Menu</button>
+                <button onclick="toggleSection('staff-section')">Staff</button>
+                <button onclick="location.href='/staff-login'">Logout</button>
             </div>
         </header>
-        <div class="buttons-container">
-            <button onclick="showSection('profile-section')">Profile</button>
-            <button onclick="showSection('update-menu-form')">Update Menu</button>
-            <button onclick="showSection('staff-section')">Staff Members</button>
-            <button>Order Detail</button>
-            <button onclick="window.location.href='/'">Logout</button>
-        </div>
-
-        <!-- Profile Section -->
-        <div id="profile-section" class="section">
-            <h3>Staff Profile</h3>
-            <p><strong>ID:</strong> 224298</p>
-            <p><strong>Name:</strong> Koushik</p>
-            <p><strong>Date of Birth:</strong> 12-12-1999</p>
-            <p><strong>Mobile Number:</strong> 1234567890</p>
-        </div>
-
-        <!-- Menu Update Section -->
-        <div id="update-menu-form" class="section">
-            <h3>Update Menu</h3>
+        <div id="menu-section" class="section active">
             {menu_html}
-            <h3>Add a New Dish</h3>
-            <form action="/staff-dashboard" method="POST">
-                <label for="category">Category:</label><br>
-                <input type="text" id="category" name="category" required><br>
-                <label for="id">Dish ID:</label><br>
-                <input type="text" id="id" name="id" required><br>
-                <label for="name">Dish Name:</label><br>
-                <input type="text" id="name" name="name" required><br>
-                <label for="price">Price:</label><br>
-                <input type="text" id="price" name="price" required><br>
-                <input type="submit" name="action" value="Add Dish">
-            </form>
         </div>
-
-        <!-- Staff Section -->
         <div id="staff-section" class="section">
             {staff_html}
         </div>
+        <script>
+            function toggleSection(sectionId) {{
+                var sections = document.querySelectorAll('.section');
+                sections.forEach(function(section) {{
+                    section.classList.remove('active');
+                }});
+                document.getElementById(sectionId).classList.add('active');
+            }}
+        </script>
     </body>
     </html>
     '''
-
 
 
 @app.route("/")
@@ -483,7 +534,6 @@ def customer_login():
         </div>
         <div style="display: flex; flex-direction: column; align-items: center; margin-top: 50px;">
             <button style="margin: 10px; padding: 10px 20px; background-color: #63a4ff; border: none; color: white;" onclick="window.location.href='/menu'">Show Menu</button>
-            <button style="margin: 10px; padding: 10px 20px; background-color: #45b39d; border: none; color: white;">Review Items</button>
             <button style="margin: 10px; padding: 10px 20px; background-color: #28a745; border: none; color: white;" onclick="window.location.href='/'">Exit</button>
         </div>
     </body>
@@ -1147,10 +1197,11 @@ def bill_page():
                 <h3>Subtotal: ₹{total_price:.2f}</h3>
                 <h3>GST (2%): ₹{gst:.2f}</h3>
                 <h3><strong>Total Amount: ₹{final_price:.2f}</strong></h3>
-                <button onclick="window.print()">Print Page</button>
-
+                <br>
+                <button style="margin: 10px; padding: 10px 20px; background-color: #28a745; border: none; color: white;" onclick="window.print()">Print Page</button>
+                <br>
+                <button style="margin: 10px; padding: 10px 20px; background-color: #28a745; border: none; color: white;" class="order-button" onclick="window.location.href='/review'">Review</button>
             </div>
-
             <div class="footer">
                 <p>Thank you for staying with us!</p>
                 <p>We look forward to serving you again.</p>
@@ -1159,5 +1210,136 @@ def bill_page():
     </body>
     </html>
     '''
+
+@app.route("/review", methods=["GET", "POST"])
+def review_page():
+    db = get_db()
+    cursor = db.cursor()
+
+    session_id = session.get('session_id')
+
+    # Handle form submission to update review
+    if request.method == "POST":
+        item_id = request.form.get("item_id")
+        new_review = float(request.form.get("review"))
+        
+        # Update the review in the Menu table
+        cursor.execute('''
+            UPDATE Menu
+            SET review = review + ?,
+                no_of_reviews = no_of_reviews + 1
+            WHERE id = ?
+        ''', (new_review, item_id))
+        db.commit()
+
+        return redirect(url_for('review_page'))
+
+    # Fetch menu items that are in the cart for the current session
+    cursor.execute('''
+        SELECT m.id, m.item_name, m.category, m.price, m.review, m.no_of_reviews
+        FROM Menu m
+        JOIN Cart c ON m.id = c.item
+        WHERE c.session_id = ?
+    ''', (session_id,))
+    menu_items = cursor.fetchall()
+
+    # Generate HTML for the review table
+    review_html = ""
+    for item in menu_items:
+        item_id, item_name, category, price, review, no_of_reviews = item
+        average_review = (review / no_of_reviews) if no_of_reviews > 0 else 0
+
+        # Generate the review stars (up to 5 stars)
+        stars = "★" * int(round(average_review)) + "☆" * (5 - int(round(average_review)))
+
+        review_html += f'''
+        <tr>
+            <td>{item_name}</td>
+            <td>{category}</td>
+            <td>₹{price:.2f}</td>
+            <td>{stars} ({average_review:.1f}/5)</td>
+            <td>
+                <form method="POST" style="display:inline;">
+                    <input type="hidden" name="item_id" value="{item_id}">
+                    <select name="review" required>
+                        <option value="" disabled selected>Rate</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                    </select>
+                    <button type="submit">Submit</button>
+                </form>
+            </td>
+        </tr>
+        '''
+
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Reviews - Hotel</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                text-align: center;
+                margin: 0;
+                padding: 0;
+                background-color: #f4f4f4;
+            }}
+            header {{
+                background-color: #4CAF50;
+                color: white;
+                padding: 20px 0;
+                font-size: 24px;
+                position: relative;
+            }}
+            .review-table {{
+                width: 80%;
+                margin: 20px auto;
+                border-collapse: collapse;
+                text-align: left;
+            }}
+            .review-table th, .review-table td {{
+                border: 1px solid #ddd;
+                padding: 10px;
+            }}
+            .review-table th {{
+                background-color: #4CAF50;
+                color: white;
+            }}
+            .form-container {{
+                margin-top: 20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <header>
+            <img src="/static/logo.jpg" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
+            <span>Hotel Name</span>
+        </header>
+        <h2>Dish Reviews</h2>
+        <table class="review-table">
+            <thead>
+                <tr>
+                    <th>Dish Name</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Review</th>
+                    <th>Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+                {review_html}
+            </tbody>
+        </table>
+            <button style="margin: 10px; padding: 10px 20px; background-color: #28a745; border: none; color: white;" onclick="window.location.href='/'">Exit</button>
+    </body>
+    </html>
+    '''
+
+
 if __name__ == "__main__":
     app.run(debug=True)
+
