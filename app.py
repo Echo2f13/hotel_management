@@ -139,7 +139,7 @@ def staff_login():
     </head>
     <body>
         <header>
-            <img src="/static/logo.jpg" alt="Hotel Logo">
+            <img src="/static/img/logo.png" alt="Hotel Logo">
             <span>Hotel Name</span>
         </header>
         <div class="login-container">
@@ -287,7 +287,7 @@ def staff_dashboard(pk):
         menu_html += "</table>"
 
     # Generate Staff HTML
-    staff_html = f"""
+    profile_html = f"""
         <h3>Staff Profile</h3>
         <p><strong>Name:</strong> {staff_member['name']}</p>
         <p><strong>Role:</strong> {staff_member['role']}</p>
@@ -299,7 +299,9 @@ def staff_dashboard(pk):
             <input type="text" name="staff_age" value="{staff_member['age']}" placeholder="New Age"><br>
             <input type="submit" name="action" value="Edit Profile">
         </form>
-
+        """
+    
+    staff_html = f"""
         <h3>Staff Members</h3>
         <table border="1" style="width:100%; margin: 10px 0;">
             <tr>
@@ -422,7 +424,7 @@ def staff_dashboard(pk):
     </head>
     <body>
         <header>
-            <img src="/static/logo.jpg" alt="Hotel Logo">
+            <img src="/static/img/logo.png" alt="Hotel Logo">
             <span>Hotel Name</span>
             <div class="buttons-container">
                 <button onclick="toggleSection('menu-section')">Menu</button>
@@ -502,11 +504,11 @@ def home():
     </head>
     <body>
         <header>
-            <img src="/static/logo.jpg" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
+            <img src="/static/img/logo.png" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
             <span>Hotel Name</span>
         </header>
         <div class="container">
-            <img src="/static/logo.jpg" alt="Hotel Picture" class="hotel-image">
+            <img src="/static/img/bg.jpeg" alt="Hotel Picture" class="hotel-image">
             <div class="buttons">
                 <button class="button" onclick="window.location.href='/staff-login'">Staff Login</button>
                 <button class="button" onclick="window.location.href='/customer-login'">Customer Login</button>
@@ -527,7 +529,7 @@ def customer_login():
     <body>
         <h1 style="text-align:center;">Hotel Name</h1>
         <div style="text-align:center;">
-            <img src="/static/logo.jpg" alt="Hotel Logo" style="width: 10%; margin-top: 20px;">
+            <img src="/static/img/logo.png" alt="Hotel Logo" style="width: 10%; margin-top: 20px;">
         </div>
         <div style="text-align:center; margin-top: 20px;">
             <h2>Customer Dashboard</h2>
@@ -620,7 +622,7 @@ def show_menu():
     </head>
     <body>
         <header>
-            <img src="/static/logo.jpg" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
+            <img src="/static/img/logo.png" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
             <span>Hotel Name</span>
         </header>
         <h2>Select a Category</h2>
@@ -787,7 +789,7 @@ def category_page(category_name):
     </head>
     <body>
         <header>
-            <img src="/static/logo.jpg" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
+            <img src="/static/img/logo.png" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
             <span>Hotel Name</span>
             <button class="cart-button" onclick="window.location.href='/cart'">Cart</button>
         </header>
@@ -899,7 +901,7 @@ def cart_page():
         </head>
         <body>
             <header>
-                <img src="/static/logo.jpg" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
+                <img src="/static/img/logo.png" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
                 <span>Hotel Name</span>
             </header>
             <h2>Cart</h2>
@@ -982,7 +984,7 @@ def cart_page():
     </head>
     <body>
         <header>
-            <img src="/static/logo.jpg" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
+            <img src="/static/img/logo.png" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
             <span>Hotel Name</span>
         </header>
         <h2>Cart</h2>
@@ -1316,8 +1318,8 @@ def review_page():
     </head>
     <body>
         <header>
-            <img src="/static/logo.jpg" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
-            <span>Hotel Name</span>
+            <img src="/static/img/logo.png" alt="Hotel Logo" style="vertical-align: middle; width: 50px;">
+            <span>Hotel</span>
         </header>
         <h2>Dish Reviews</h2>
         <table class="review-table">
