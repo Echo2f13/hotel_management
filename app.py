@@ -1159,8 +1159,5 @@ def bill_page():
     </body>
     </html>
     '''
-
-
-
 if __name__ == "__main__":
     app.run(debug=True)
