@@ -2,19 +2,15 @@ from flask import Flask, g
 import sqlite3
 import os
 
-
-
-
 app = Flask(__name__)
 DATABASE = os.path.join(os.getcwd(), "database.db")
 
 def get_db():
-    db = getattr(g, '_database', None)  # Check if database is already connected
+    db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(DATABASE)  # Connect to SQLite database
-        db.row_factory = sqlite3.Row  # This allows accessing rows as dictionaries
+        db = g._database = sqlite3.connect(DATABASE)
+        db.row_factory = sqlite3.Row
     return db
-
 
 def init_db():
     print("creating a new db")
@@ -98,8 +94,8 @@ def get_menu_data_from_db():
 def get_categories_from_db():
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT DISTINCT category FROM Menu")  # Fetch distinct categories
-    categories = cursor.fetchall()  # Get all categories
+    cursor.execute("SELECT DISTINCT category FROM Menu")
+    categories = cursor.fetchall()
     return [row['category'] for row in categories]
 
 def get_dishes_for_category(category_name):
@@ -112,11 +108,6 @@ def get_dishes_for_category(category_name):
 def get_price_from_db():
     db = get_db()
     cursor = db.cursor()
-    # Fetch item names and their prices
     cursor.execute("SELECT item_name, price FROM Menu")
     prices = cursor.fetchall()
     return {row['item_name']: row['price'] for row in prices}
-
-from flask import request, redirect, url_for
-
-

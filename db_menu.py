@@ -1,9 +1,6 @@
 import sqlite3
 
-# Path to your SQLite database
 DATABASE = 'database.db'
-
-# Define the menu data
 menu_data = [
     {'id': '1', 'name': 'Chicken Biryani', 'price': '250', 'category': 'Biryani'},
     {'id': '2', 'name': 'Mutton Biryani', 'price': '400', 'category': 'Biryani'},
@@ -23,12 +20,8 @@ menu_data = [
     {'id': '13', 'name': 'Maaza', 'price': '60', 'category': 'Drinks'},
     {'id': '14', 'name': 'Pepsi', 'price': '60', 'category': 'Drinks'}
 ]
-
-# Connect to the SQLite database
 conn = sqlite3.connect(DATABASE)
 cursor = conn.cursor()
-
-# Create Menu table (if not already exists)
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS Menu (
         id INTEGER PRIMARY KEY,
@@ -37,18 +30,11 @@ cursor.execute('''
         category TEXT NOT NULL
     )
 ''')
-
-# Insert data into the Menu table
 for item in menu_data:
     cursor.execute('''
         INSERT INTO Menu (id, item_name, price, category)
         VALUES (?, ?, ?, ?)
     ''', (item['id'], item['name'], item['price'], item['category']))
-
-# Commit the transaction
 conn.commit()
-
-# Close the connection
 conn.close()
-
 print("Menu data inserted successfully!")

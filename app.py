@@ -14,7 +14,6 @@ def ensure_session():
     if 'session_id' not in session:
         session['session_id'] = str(uuid4())
 
-# Staff credentials
 STAFF_EMAIL = "staff@gmail.com"
 STAFF_PASSWORD = "Staff@123"
 cart_data = [
@@ -22,7 +21,6 @@ cart_data = [
     {'dish_name': 'Samosa', 'price': 50, 'quantity': 4}
 ]
 staff_data = []
-# Updated menu data with Cool Drinks (Thums Up, Maaza, Pepsi)
 menu_data = {
     'Biryani': [
         {'id': '1', 'name': 'Chicken Biryani', 'price': '₹250'},
@@ -48,15 +46,12 @@ menu_data = {
     ]
 }
 
-
 @app.route("/staff-login", methods=["GET", "POST"])
 def staff_login():
     error_message = ""
     if request.method == "POST":
         email = request.form['email']
         password = request.form['password']
-
-        # Fetch staff details from the database
         db = get_db()
         cursor = db.cursor()
         cursor.execute('''
@@ -65,14 +60,10 @@ def staff_login():
             WHERE email = ?
         ''', (email,))
         staff = cursor.fetchone()
-
-        # Check if the staff exists and the password matches
         if staff and staff['password'] == password:
-            # Redirect to staff dashboard with their primary key
             return redirect(url_for('staff_dashboard', pk=staff['id']))
         else:
             error_message = "Incorrect credentials!"
-
     return f'''
     <!DOCTYPE html>
     <html>
@@ -161,67 +152,60 @@ def staff_login():
 def staff_dashboard(pk):
     db = get_db()
     cursor = db.cursor()
-    
     if request.method == 'POST':
         action = request.form.get('action')
-        
         if action == 'Delete Dish':
             category = request.form['category']
             dish_id = request.form['id']
-            # Delete the dish from the database
             cursor.execute('''
                 DELETE FROM Menu
                 WHERE id = ? AND category = ?
             ''', (dish_id, category))
             db.commit()
-        
         elif action == 'Edit Dish':
             category = request.form['category']
             dish_id = request.form['id']
             new_name = request.form['new_name']
             new_price = request.form['new_price']
-            # Update the dish in the database
             cursor.execute('''
                 UPDATE Menu
                 SET item_name = ?, price = ?
                 WHERE id = ? AND category = ?
             ''', (new_name, new_price, dish_id, category))
             db.commit()
-        
-        elif action == 'Delete_Staff':
+        elif action == 'Delete Staff':
             staff_id = request.form['staff_id']
-            # Delete the staff member from the database
             cursor.execute('''
                 DELETE FROM Staff
                 WHERE id = ?
             ''', (staff_id,))
             db.commit()
-        
         elif action == 'Edit Profile':
-            staff_id = pk
+            id = pk 
             new_name = request.form['staff_name']
-            new_role = request.form['staff_role']
             new_age = request.form['staff_age']
-            # Update the staff member's profile in the database
+            new_mobile = request.form['staff_mobile']
+            new_email = request.form['staff_email']
+            new_pass = request.form['staff_pass']
+            new_dob = request.form['staff_dob']
+            new_admin = request.form['staff_admin']
+            new_role = request.form['staff_role']
             cursor.execute('''
                 UPDATE Staff
-                SET name = ?, role = ?, age = ?
+                SET name = ?, age = ?, mobile_number = ?, email = ?, password = ?, dob = ?, admin = ?, role = ?
                 WHERE id = ?
-            ''', (new_name, new_role, new_age, staff_id))
+            ''', (new_name, new_age, new_mobile, new_email, new_pass, new_dob, new_admin, new_role, id))
             db.commit()
-        
         elif action == 'Add Dish':
             category = request.form['category']
             dish_name = request.form['dish_name']
             dish_price = request.form['dish_price']
-            # Add a new dish to the database
             cursor.execute('''
                 INSERT INTO Menu (category, item_name, price)
                 VALUES (?, ?, ?)
             ''', (category, dish_name, dish_price))
             db.commit()
-        
-        elif action == 'Add_Staff':
+        elif action == 'Add Staff':
             staff_id = request.form['staff_id']
             staff_name = request.form['staff_name']
             staff_age = request.form['staff_age']
@@ -231,23 +215,25 @@ def staff_dashboard(pk):
             staff_dob = request.form['staff_dob']
             staff_admin = request.form['staff_admin']
             staff_role = request.form['staff_role']
-            # Add a new staff member to the database
             cursor.execute('''
                 INSERT INTO Staff (staff_id, name, age, mobile_number, email, password, dob, admin, role)
                 VALUES (?, ?, ?, ?, ? , ? , ? , ? , ? )
             ''', (staff_id, staff_name, staff_age, staff_mobile, staff_email, staff_pass, staff_dob, staff_admin, staff_role))
             db.commit()
-    
     cursor.execute('''
         SELECT id, name, role, age, admin
         FROM Staff
         WHERE id = ?
     ''', (pk,))
     staff_member = cursor.fetchone()
-
+    cursor.execute('''
+        SELECT id, name, role, age, admin, mobile_number, staff_id, email, password, dob 
+        FROM Staff
+        WHERE id = ?
+    ''', (pk,))
+    staff_member_pk = cursor.fetchone()
     if not staff_member:
         return redirect('/staff-login')
-
     menu_data = {}
     cursor.execute('SELECT * FROM Menu')
     dishes = cursor.fetchall()
@@ -255,8 +241,6 @@ def staff_dashboard(pk):
         if dish['category'] not in menu_data:
             menu_data[dish['category']] = []
         menu_data[dish['category']].append(dish)
-
-    # Generate Menu HTML
     menu_html = ""
     for category, items in menu_data.items():
         menu_html += f"<h3>{category}</h3>"
@@ -265,15 +249,19 @@ def staff_dashboard(pk):
             <tr>
                 <th>ID</th>
                 <th>Name</th>
+                <th>Rating</th>
                 <th>Price</th>
                 <th>Actions</th>
             </tr>
         """
         for dish in items:
+            avg_review = dish['review']/dish['no_of_reviews']
+            stars = "★" * int(round(avg_review)) + "☆" * (5 - int(round(avg_review)))
             menu_html += f"""
             <tr>
                 <td>{dish['id']}</td>
                 <td>{dish['item_name']}</td>
+                <td>{stars} {avg_review}</td>
                 <td>{dish['price']}</td>
                 <td>
                     <form action="/staff-dashboard/{pk}" method="POST" style="display:inline;">
@@ -296,7 +284,6 @@ def staff_dashboard(pk):
         <br>
         <br>
         <h2>Add a new item to Menu</h2>
-
         <form action="/staff-dashboard/{pk}" method="POST" style="display:inline;">
         <label for="category">Choose a Category:</label>
             <select id="category" name="category">
@@ -320,20 +307,45 @@ def staff_dashboard(pk):
             <input type="submit" name="action" value="Add Dish">
         </form>
     """
-
-    # Generate Staff HTML
     profile_html = f"""
         <h3>Staff Profile</h3>
-        <p><strong>Name:</strong> {staff_member['name']}</p>
-        <p><strong>Role:</strong> {staff_member['role']}</p>
-        <p><strong>Age:</strong> {staff_member['age']}</p>
+        <p><strong>Name:</strong> {staff_member_pk['name']}</p>
+        <p><strong>Role:</strong> {staff_member_pk['role']}</p>
+        <p><strong>Age:</strong> {staff_member_pk['age']}</p>
+        <p><strong>Mobile Number:</strong> {staff_member_pk['mobile_number']}</p>
+        <p><strong>Date of Birth:</strong> {staff_member_pk['dob']}</p>
+        <br>
+        <hr>
+        <br>
         """
     profile_html_edit = f"""
-        <form action="/staff-dashboard" method="POST">
-            <input type="hidden" name="staff_id" value="{staff_member['id']}">
-            <input type="text" name="staff_name" value="{staff_member['name']}" placeholder="New Name"><br>
-            <input type="text" name="staff_role" value="{staff_member['role']}" placeholder="New Role"><br>
-            <input type="text" name="staff_age" value="{staff_member['age']}" placeholder="New Age"><br>
+        <h3>Edit Profile</h3>
+        <form action="/staff-dashboard/{pk}" method="POST">
+            <input type="hidden" name="id" value="{staff_member_pk['id']}">
+            <label for="staff_name">Name:</label><br>
+            <input type="text" id="staff_name" name="staff_name" value="{staff_member_pk['name']}" required><br>
+            
+            <label for="staff_age">Age:</label><br>
+            <input type="number" id="staff_age" name="staff_age" value="{staff_member_pk['age']}" required><br>
+            
+            <label for="staff_mobile">Mobile:</label><br>
+            <input type="text" id="staff_mobile" name="staff_mobile" value="{staff_member_pk['mobile_number']}" required><br>
+            
+            <label for="staff_email">Email:</label><br>
+            <input type="email" id="staff_email" name="staff_email" value="{staff_member_pk['email']}" required><br>
+            
+            <label for="staff_pass">Password:</label><br>
+            <input type="password" id="staff_pass" name="staff_pass" value="{staff_member_pk['password']}" required><br>
+            
+            <label for="staff_dob">Date of Birth:</label><br>
+            <input type="date" id="staff_dob" name="staff_dob" value="{staff_member_pk['dob']}" required><br>
+            
+            <label for="staff_admin">Admin:</label><br>
+            <input type="number" id="staff_admin" name="staff_admin" value="{staff_member_pk['admin']}" min="0" max="1" required><br>
+            
+            <label for="staff_role">Role:</label><br>
+            <input type="text" id="staff_role" name="staff_role" value="{staff_member_pk['role']}" required><br>
+            
             <input type="submit" name="action" value="Edit Profile">
         </form>
         """
@@ -343,7 +355,6 @@ def staff_dashboard(pk):
         """
     else:
         staff_admin_page = "" 
-    
     staff_html = f"""
         <h3>Staff Members</h3>
         <table border="1" style="width:100%; margin: 10px 0;">
@@ -367,14 +378,12 @@ def staff_dashboard(pk):
             <td>
                 <form action="/staff-dashboard/{pk}" method="POST" style="display:inline;">
                     <input type="hidden" name="staff_id" value="{staff['id']}">
-                    <input type="submit" name="action" value="Delete_Staff">
+                    <input type="submit" name="action" value="Delete Staff">
                 </form>
             </td>
         </tr>
         """
     staff_html += "</table>"
-
-
     cursor.execute('''
         SELECT 
             o.id AS order_id,  -- Fetch order_id
@@ -387,30 +396,22 @@ def staff_dashboard(pk):
         JOIN `Menu` m ON c.item = m.id
         ORDER BY o.date DESC, o.time DESC
     ''')
-
     orders = cursor.fetchall()
-
-    # Group orders by session_id and table_no
     orders_by_session = {}
     for order in orders:
-        session_id = order[3]  # session_id
-        table_no = order[4]  # table_no
+        session_id = order[3]  
+        table_no = order[4] 
         if (session_id, table_no) not in orders_by_session:
             orders_by_session[(session_id, table_no)] = []
         orders_by_session[(session_id, table_no)].append(order)
-
-    # Generate HTML for grouped orders
     order_html = """
         <h1>Order History</h1>
     """
-
-    # Loop through grouped orders
     for (session_id, table_no), grouped_orders in orders_by_session.items():
-        order_id = grouped_orders[0][0]  # Use the first entry's order_id
-        order_total_price = grouped_orders[0][9]  # Use the first entry's total_price for the order
-        order_date = grouped_orders[0][1]  # Order date
-        order_time = grouped_orders[0][2]  # Order time
-
+        order_id = grouped_orders[0][0] 
+        order_total_price = grouped_orders[0][9] 
+        order_date = grouped_orders[0][1]  
+        order_time = grouped_orders[0][2]
         order_html += f"""
         <p><strong>Time: {order_time}, Date: {order_date}, Table No: {table_no}</strong></p>
         <p>Total Order Price: ₹{order_total_price:.2f}</p>
@@ -419,7 +420,6 @@ def staff_dashboard(pk):
                 Show Bill Now
             </button>
         </form>
-
         <table border="1" style="width: 100%; margin-top: 10px;">
             <tr>
                 <th>Item Name</th>
@@ -438,10 +438,6 @@ def staff_dashboard(pk):
                 </tr>
             """
         order_html += "</table><hr><br>"
-
-    # Render the order_html in your web framework as a response (Flask/Django etc.)
-
-
     staff_html += f"""
     <h3>Add a New Staff Member</h3>
     <form action="/staff-dashboard/{pk}" method="POST">
@@ -463,13 +459,10 @@ def staff_dashboard(pk):
         <input type="text" id="staff_role" name="staff_admin" required><br>
         <label for="staff_role">Role:</label><br>
         <input type="text" id="staff_role" name="staff_role" required><br>
-        <input type="submit" name="action" value="Add_Staff">
+        <input type="submit" name="action" value="Add Staff">
     </form>
     """
-    
-
     return f'''
-
     <!DOCTYPE html>
     <html>
     <head>
@@ -587,8 +580,6 @@ def staff_dashboard(pk):
 def generate_bill(pk, order_id):
     db = get_db()
     cursor = db.cursor()
-
-    # Fetch the order details
     cursor.execute('''
         SELECT 
             o.id AS order_id, o.date, o.time, o.total_price, o.table_no,
@@ -599,15 +590,10 @@ def generate_bill(pk, order_id):
         JOIN `Menu` m ON c.item = m.id
         WHERE o.id = ?
     ''', (order_id,))
-    
     order_details = cursor.fetchall()
     cursor.close()
-
-    # Check if order exists
     if not order_details:
         return "<h1>Order not found</h1>", 404
-
-    # Prepare data for rendering
     cart_html = ""
     subtotal = 0
     for item in order_details:
@@ -620,11 +606,8 @@ def generate_bill(pk, order_id):
             </tr>
         """
         subtotal += item[8]
-
-    gst = subtotal * 0.02  # Calculate GST at 2%
+    gst = subtotal * 0.02 
     final_price = subtotal + gst
-
-    # HTML Template
     bill_template = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -731,7 +714,6 @@ def generate_bill(pk, order_id):
                 <br>
                 <button style="margin: 10px; padding: 10px 20px; background-color: #28a745; border: none; color: white;" onclick="window.print()">Print Page</button>
                 <button style="margin: 10px; padding: 10px 20px; background-color: #28a745; border: none; color: white;" onclick="window.location.href='/staff-dashboard/{pk}'">Back</button>
-                
                 <br>
             </div>
             <div class="footer">
@@ -836,9 +818,8 @@ def customer_login():
 
 @app.route("/menu")
 def show_menu():
-    categories = get_categories_from_db()  # Fetch categories from DB
+    categories = get_categories_from_db()
     category_buttons = ''.join([f'<button onclick="window.location.href=\'/category/{category}\'">{category.capitalize()}</button>' for category in categories])
-    
     html_content = f'''
     <!DOCTYPE html>
     <html>
@@ -922,6 +903,7 @@ def show_menu():
             <!-- Left-side categories -->
             <div class="categories">
                 {category_buttons}
+                <button style="margin: 10px; padding: 10px 20px; background-color: grey; border: none; color: white;" onclick="window.location.href='/'">Exit</button>
             </div>
             
             <!-- Right-side dishes -->
@@ -942,24 +924,15 @@ def category_page(category_name):
         item_id = request.form.get("item_id")
         quantity = int(request.form.get("quantity", 1)) 
         session_id = session.get('session_id')
-        
         db = get_db()
         cursor = db.cursor()
-        
-        # Fetch the item details from the Menu table
-        cursor.execute("SELECT id, item_name, price FROM Menu WHERE id = ?", (item_id,))
+        cursor.execute("SELECT id, item_name, price, review, no_of_reviews FROM Menu WHERE id = ?", (item_id,))
         item = cursor.fetchone()
-
         if item:
-            # Check if the item already exists in the cart for the given session_id
             cursor.execute("SELECT id, quantity FROM Cart WHERE item = ? AND session_id = ?", (item_id, session_id))
             existing_item = cursor.fetchone()
-
             if existing_item:
-                # If the item exists, delete the old entry
                 cursor.execute("DELETE FROM Cart WHERE item = ? AND session_id = ?", (item_id, session_id))
-
-            # Insert the new data (either fresh entry or updated data after deletion)
             cursor.execute(
                 "INSERT INTO Cart (item, quantity, price, session_id) VALUES (?, ?, ?, ?)",
                 (item["id"], quantity, item["price"] * quantity, session_id)
@@ -975,10 +948,13 @@ def category_page(category_name):
         cursor.execute("SELECT quantity FROM Cart WHERE item = ? AND session_id = ?", (dish['id'], session['session_id']))
         cart_item = cursor.fetchone()
         quantity_value = cart_item['quantity'] if cart_item else 0
+        avg_review = (dish['review']/dish['no_of_reviews']) if (dish['no_of_reviews'] > 0) else 0
+        stars = "★" * int(round(avg_review)) + "☆" * (5 - int(round(avg_review)))
         dishes_html += f'''
         <div class="dish-card">
             <img src="/static/img/{dish['id']}.jpg" alt="{dish['item_name']}">
             <h3>{dish['item_name']}</h3>
+            <h3>{stars} {avg_review}</h3>
             <h3>₹{dish['price']:.2f}</h3>
             <form action="/category/{category_name}" method="POST" style="margin-top: 10px;">
                 <input type="hidden" name="session_id" value="{session['session_id']}" >
@@ -1089,6 +1065,7 @@ def category_page(category_name):
         <div class="menu-container">
             <div class="categories">
                 {category_buttons}
+                <button style="margin: 10px; padding: 10px 20px; background-color: grey; border: none; color: white;" onclick="window.location.href='/'">Exit</button>
             </div>
             <div class="dish-grid">
                 {dishes_html}
@@ -1102,14 +1079,11 @@ def category_page(category_name):
 @app.route("/cart", methods=["GET", "POST"])
 def cart_page():
     session_id = session.get('session_id')
-    
     db = get_db()
     cursor = db.cursor() 
-
-    # If the request is POST, place the order
     if request.method == "POST":
-        current_datetime = datetime.now()  # Get current date and time
-        date = current_datetime.date()  # Extract date part
+        current_datetime = datetime.now() 
+        date = current_datetime.date()  
         time = current_datetime.strftime("%H:%M:%S")
         cart_table_no = request.form.get("cart_table_no")   
         cursor.execute('''
@@ -1119,19 +1093,12 @@ def cart_page():
             WHERE c.session_id = ?
         ''', (session_id,))
         total_price = cursor.fetchone()[0]
-
-        # If the total price is invalid, redirect to cart page with an error message
-
-        # Insert into the Order table
         cursor.execute('''
             INSERT INTO `Order` (session_id, total_price, date, time, table_no )
             VALUES (?, ?, ?, ?, ?)
         ''', (session_id, total_price, date, time, cart_table_no))
         db.commit()
-
         return redirect(url_for('bill_page'))
-
-    # Fetch cart items for display
     cursor.execute('''
         SELECT m.item_name, c.quantity, m.price
         FROM Cart c
@@ -1139,8 +1106,6 @@ def cart_page():
         WHERE c.session_id = ?
     ''', (session_id,))
     cart_items = cursor.fetchall()
-
-    # If the cart is empty, show the empty cart page
     if not cart_items:
         return '''
         <!DOCTYPE html>
@@ -1207,8 +1172,6 @@ def cart_page():
         </body>
         </html>
         '''
-
-    # Generate the cart table rows dynamically
     cart_html = ""
     total_price = 0
     for idx, item in enumerate(cart_items, start=1):
@@ -1224,7 +1187,6 @@ def cart_page():
             <td>₹{total_item_price:.2f}</td>
         </tr>
         '''
-
     return f'''
     <!DOCTYPE html>
     <html>
@@ -1317,8 +1279,6 @@ def bill_page():
     session_id = session.get('session_id')
     db = get_db()
     cursor = db.cursor()
-
-    # Fetch cart items for the current session
     cursor.execute('''
         SELECT m.item_name, c.quantity, c.price
         FROM Cart c
@@ -1326,9 +1286,7 @@ def bill_page():
         WHERE c.session_id = ?
     ''', (session_id,))
     cart_items = cursor.fetchall()
-
     if not cart_items:
-        # If no items are in the cart, display a message
         return '''
         <!DOCTYPE html>
         <html>
@@ -1373,23 +1331,16 @@ def bill_page():
         </body>
         </html>
         '''
-
-    prices = get_price_from_db()  # Returns a dictionary {item_name: price}
-
-    # Generate HTML rows for the cart items
+    prices = get_price_from_db() 
     cart_html = ""
-    total_price = 0  # Initialize total price
-
+    total_price = 0 
     for idx, item in enumerate(cart_items, start=1):
-        item_name, quantity, _ = item  # Unpack cart item details
-        item_price = prices.get(item_name, 0)  # Get price for the item, default to 0 if not found
+        item_name, quantity, _ = item 
+        item_price = prices.get(item_name, 0)
         item_total = item_price * quantity
-        total_price += item_total  # Accumulate total price
+        total_price += item_total 
         gst = total_price * 0.02
         final_price = gst+total_price
-
-
-
         cart_html += f'''
         <tr>
             <td>{item_name}</td>
@@ -1398,7 +1349,6 @@ def bill_page():
             <td>₹{item_price * quantity:.2f}</td>
         </tr>
         '''
-
     return f'''
     <!DOCTYPE html>
     <html lang="en">
@@ -1516,15 +1466,10 @@ def bill_page():
 def review_page():
     db = get_db()
     cursor = db.cursor()
-
     session_id = session.get('session_id')
-
-    # Handle form submission to update review
     if request.method == "POST":
         item_id = request.form.get("item_id")
         new_review = float(request.form.get("review"))
-        
-        # Update the review in the Menu table
         cursor.execute('''
             UPDATE Menu
             SET review = review + ?,
@@ -1532,10 +1477,7 @@ def review_page():
             WHERE id = ?
         ''', (new_review, item_id))
         db.commit()
-
         return redirect(url_for('review_page'))
-
-    # Fetch menu items that are in the cart for the current session
     cursor.execute('''
         SELECT m.id, m.item_name, m.category, m.price, m.review, m.no_of_reviews
         FROM Menu m
@@ -1543,16 +1485,11 @@ def review_page():
         WHERE c.session_id = ?
     ''', (session_id,))
     menu_items = cursor.fetchall()
-
-    # Generate HTML for the review table
     review_html = ""
     for item in menu_items:
         item_id, item_name, category, price, review, no_of_reviews = item
         average_review = (review / no_of_reviews) if no_of_reviews > 0 else 0
-
-        # Generate the review stars (up to 5 stars)
         stars = "★" * int(round(average_review)) + "☆" * (5 - int(round(average_review)))
-
         review_html += f'''
         <tr>
             <td>{item_name}</td>
@@ -1575,7 +1512,6 @@ def review_page():
             </td>
         </tr>
         '''
-
     return f'''
     <!DOCTYPE html>
     <html>
@@ -1639,7 +1575,6 @@ def review_page():
     </body>
     </html>
     '''
-
 
 if __name__ == "__main__":
     app.run(debug=True)
